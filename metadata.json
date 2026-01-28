@@ -1,0 +1,7 @@
+{
+  "name": "Estoque Palavra",
+  "description": "Gerenciamento de estoque moderno com suporte a Supabase e leitura de QR Code.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
