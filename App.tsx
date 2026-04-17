@@ -1124,15 +1124,9 @@ const App: React.FC = () => {
                         <p className="text-xs text-slate-500 mb-1">SKU</p>
                         <p className="font-mono font-bold text-slate-800">{selectedAuditDetail.code}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                            <p className="text-xs text-slate-500 mb-1">Tamanho</p>
-                            <p className="font-bold text-slate-800">{selectedAuditDetail.size}</p>
-                        </div>
-                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                            <p className="text-xs text-slate-500 mb-1">Quantidade</p>
-                            <p className="font-bold text-slate-800">{selectedAuditDetail.qty}</p>
-                        </div>
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <p className="text-xs text-slate-500 mb-1">Quantidade</p>
+                        <p className="font-bold text-slate-800">{selectedAuditDetail.qty}</p>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                         <p className="text-xs text-slate-500 mb-1">Data e Hora da Auditoria</p>
