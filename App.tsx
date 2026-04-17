@@ -636,6 +636,34 @@ const App: React.FC = () => {
     p.id.toLowerCase().includes(orderItemSearch.toLowerCase())
   );
 
+  const auditBySku = audits.reduce((acc, item) => {
+    const existing = acc[item.code];
+    if (existing) {
+      existing.qty += 1;
+      if (new Date(item.scannedAt).getTime() > new Date(existing.lastScannedAt).getTime()) {
+        existing.lastScannedAt = item.scannedAt;
+        existing.productName = item.productName;
+      }
+      return acc;
+    }
+
+    acc[item.code] = {
+      code: item.code,
+      productName: item.productName,
+      qty: 1,
+      lastScannedAt: item.scannedAt
+    };
+    return acc;
+  }, {} as Record<string, { code: string; productName: string; qty: number; lastScannedAt: string }>);
+
+  const auditRows = Object.values(auditBySku).sort((a, b) => {
+    if (b.qty !== a.qty) return b.qty - a.qty;
+    return new Date(b.lastScannedAt).getTime() - new Date(a.lastScannedAt).getTime();
+  });
+
+  const totalAuditedItems = audits.length;
+  const totalAuditedSkus = auditRows.length;
+
   return (
     <div className="max-w-[480px] mx-auto bg-slate-50 min-h-screen relative shadow-2xl pb-24">
       <Toast toasts={toasts} removeToast={removeToast} />
@@ -982,23 +1010,39 @@ const App: React.FC = () => {
                 Escaneie os QR Codes para registrar as pecas auditadas.
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <p className="text-[11px] uppercase font-bold text-slate-400">Total Bipado</p>
+                    <p className="text-2xl font-bold text-slate-800 mt-1">{totalAuditedItems}</p>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <p className="text-[11px] uppercase font-bold text-slate-400">SKUs Unicos</p>
+                    <p className="text-2xl font-bold text-slate-800 mt-1">{totalAuditedSkus}</p>
+                </div>
+            </div>
+
             <div className="space-y-3 pt-1">
-                {audits.length === 0 ? (
+                {auditRows.length === 0 ? (
                     <div className="text-center py-12 opacity-50">
                         <CheckSquare size={48} className="mx-auto mb-3 text-slate-400" />
                         <p>Nenhuma peca auditada ainda</p>
                     </div>
                 ) : (
-                    audits.map(item => (
-                        <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                    auditRows.map(item => (
+                        <div key={item.code} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                             <div className="flex justify-between items-start gap-3">
                                 <div className="min-w-0">
                                     <p className="font-bold text-slate-800 truncate">{item.productName}</p>
                                     <p className="text-xs text-slate-500 mt-1 font-mono">{item.code}</p>
                                 </div>
-                                <span className="text-[11px] text-slate-400 whitespace-nowrap">
-                                    {new Date(item.scannedAt).toLocaleString('pt-BR')}
-                                </span>
+                                <div className="text-right">
+                                    <span className="inline-flex items-center rounded-lg bg-blue-100 text-blue-700 px-2 py-1 text-xs font-bold">
+                                        Qtd: {item.qty}
+                                    </span>
+                                    <p className="text-[11px] text-slate-400 whitespace-nowrap mt-1">
+                                        {new Date(item.lastScannedAt).toLocaleString('pt-BR')}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     ))
