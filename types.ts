@@ -35,12 +35,19 @@ export interface Order {
   entregaMatriz?: boolean;
 }
 
+export interface AuditEntry {
+  id: string;
+  code: string;
+  productName: string;
+  scannedAt: string;
+}
+
 export interface SupabaseConfig {
   url: string;
   key: string;
 }
 
-export type ViewState = 'home' | 'scan' | 'history' | 'orders';
+export type ViewState = 'home' | 'scan' | 'history' | 'orders' | 'audit';
 
 export interface ToastMessage {
   id: number;
@@ -50,7 +57,7 @@ export interface ToastMessage {
 
 export interface SyncItem {
   id: string | number;
-  type: 'PRODUCT' | 'MOVEMENT' | 'ORDER' | 'DELETE_ORDER';
+  type: 'PRODUCT' | 'MOVEMENT' | 'ORDER' | 'DELETE_ORDER' | 'AUDIT';
   action: 'SAVE' | 'DELETE';
   payload: any;
   isNew?: boolean; // Para produtos e pedidos

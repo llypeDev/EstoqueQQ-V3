@@ -5,7 +5,7 @@ import {
   Trash2, Box, History, ArrowDown, ArrowUp, Calendar, ShoppingCart, 
   User, Hash, CheckSquare, Edit, X, RefreshCw, ScanLine, Upload, Truck, Building, CloudUpload
 } from 'lucide-react';
-import { Product, Movement, ViewState, ToastMessage, Order, OrderItem } from './types';
+import { Product, Movement, ViewState, ToastMessage, Order, OrderItem, AuditEntry } from './types';
 import * as storage from './services/storage';
 import * as exporter from './utils/export';
 import Scanner from './components/Scanner';
@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [audits, setAudits] = useState<AuditEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [pendingSync, setPendingSync] = useState(0); // Count of offline items
@@ -35,7 +36,7 @@ const App: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [showImport, setShowImport] = useState(false); // New Import Modal
   const [showScanner, setShowScanner] = useState(false);
-  const [scanMode, setScanMode] = useState<'global' | 'order'>('global');
+  const [scanMode, setScanMode] = useState<'global' | 'order' | 'audit'>('global');
   
   // Order Modals
   const [showOrderForm, setShowOrderForm] = useState(false);
@@ -87,9 +88,11 @@ const App: React.FC = () => {
       const prods = await storage.fetchProducts();
       const movs = await storage.fetchMovements();
       const ords = await storage.fetchOrders();
+      const auditItems = await storage.fetchAuditEntries();
       setProducts(prods);
       setMovements(movs);
       setOrders(ords);
+      setAudits(auditItems);
       
       // Check for pending sync items
       setPendingSync(storage.getPendingSyncCount());
@@ -557,11 +560,37 @@ const App: React.FC = () => {
         
         // Reset mode after scan
         setScanMode('global');
+    } else if (scanMode === 'audit') {
+        const product = products.find(p => p.id === code);
+        const entry: AuditEntry = {
+            id: crypto.randomUUID ? crypto.randomUUID() : `AUD-${Date.now()}`,
+            code,
+            productName: product?.name || 'Produto nÃ£o cadastrado',
+            scannedAt: new Date().toISOString()
+        };
+
+        storage.saveAuditEntry(entry)
+            .then(() => {
+                setAudits(prev => [entry, ...prev]);
+                addToast('success', `Bipado: ${entry.productName}`);
+            })
+            .catch((e: any) => {
+                addToast('error', `Erro na auditoria: ${e.message || 'falha ao salvar'}`);
+            })
+            .finally(() => {
+                setScanMode('global');
+                setView('audit');
+            });
     }
   };
 
   const openOrderScanner = () => {
       setScanMode('order');
+      setShowScanner(true);
+  };
+
+  const openAuditScanner = () => {
+      setScanMode('audit');
       setShowScanner(true);
   };
 
@@ -714,9 +743,14 @@ const App: React.FC = () => {
           <div className="p-6 animate-fade-in space-y-6">
               <div className="flex justify-between items-end">
                   <h2 className="text-2xl font-bold text-slate-800">Pedidos</h2>
-                  <button onClick={openNewOrder} className="bg-qq-green hover:bg-qq-green-dark text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md shadow-green-100 transition flex items-center gap-2 active:scale-95">
-                      <Plus size={18} /> Criar Pedido
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowImport(true)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 active:scale-95">
+                        <Upload size={16} /> Importar
+                    </button>
+                    <button onClick={openNewOrder} className="bg-qq-green hover:bg-qq-green-dark text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md shadow-green-100 transition flex items-center gap-2 active:scale-95">
+                        <Plus size={18} /> Criar Pedido
+                    </button>
+                  </div>
               </div>
 
               <div className="space-y-4">
@@ -931,6 +965,48 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* --- VIEW: AUDIT --- */}
+      {view === 'audit' && (
+        <div className="p-6 animate-fade-in space-y-4">
+            <div className="flex justify-between items-center mb-2">
+                <h2 className="text-2xl font-bold text-slate-800">Auditoria</h2>
+                <button
+                    onClick={openAuditScanner}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 active:scale-95"
+                >
+                    <ScanLine size={18} /> Bipar
+                </button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                Escaneie os QR Codes para registrar as pecas auditadas.
+            </div>
+
+            <div className="space-y-3 pt-1">
+                {audits.length === 0 ? (
+                    <div className="text-center py-12 opacity-50">
+                        <CheckSquare size={48} className="mx-auto mb-3 text-slate-400" />
+                        <p>Nenhuma peca auditada ainda</p>
+                    </div>
+                ) : (
+                    audits.map(item => (
+                        <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                            <div className="flex justify-between items-start gap-3">
+                                <div className="min-w-0">
+                                    <p className="font-bold text-slate-800 truncate">{item.productName}</p>
+                                    <p className="text-xs text-slate-500 mt-1 font-mono">{item.code}</p>
+                                </div>
+                                <span className="text-[11px] text-slate-400 whitespace-nowrap">
+                                    {new Date(item.scannedAt).toLocaleString('pt-BR')}
+                                </span>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+      )}
+
       {/* --- BOTTOM NAV --- */}
       <nav className="fixed bottom-0 w-full max-w-[480px] bg-white border-t border-slate-100 flex justify-around py-2 pb-safe z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
         <button onClick={() => setView('home')} className={`flex flex-col items-center p-2 transition-colors ${view === 'home' ? 'text-qq-green' : 'text-slate-400 hover:text-slate-600'}`}>
@@ -949,14 +1025,14 @@ const App: React.FC = () => {
             </button>
         </div>
 
-        <button onClick={() => setView('history')} className={`flex flex-col items-center p-2 transition-colors ${view === 'history' ? 'text-qq-green' : 'text-slate-400 hover:text-slate-600'}`}>
-            <ClipboardList size={24} className={view === 'history' ? 'fill-current opacity-20' : ''} />
-            <span className="text-[10px] font-bold mt-1">Histórico</span>
+        <button onClick={() => setView('audit')} className={`flex flex-col items-center p-2 transition-colors ${view === 'audit' ? 'text-qq-green' : 'text-slate-400 hover:text-slate-600'}`}> 
+            <CheckSquare size={24} className={view === 'audit' ? 'fill-current opacity-20' : ''} />
+            <span className="text-[10px] font-bold mt-1">Auditoria</span>
         </button>
 
-        <button onClick={() => setShowImport(true)} className="flex flex-col items-center p-2 transition-colors text-slate-400 hover:text-slate-600">
-            <Upload size={24} />
-            <span className="text-[10px] font-bold mt-1">Importar</span>
+        <button onClick={() => setView('history')} className={`flex flex-col items-center p-2 transition-colors ${view === 'history' ? 'text-qq-green' : 'text-slate-400 hover:text-slate-600'}`}> 
+            <ClipboardList size={24} className={view === 'history' ? 'fill-current opacity-20' : ''} />
+            <span className="text-[10px] font-bold mt-1">Historico</span>
         </button>
       </nav>
 

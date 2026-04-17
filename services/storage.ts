@@ -1,9 +1,10 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Product, Movement, SupabaseConfig, Order, SyncItem } from '../types';
+import { Product, Movement, SupabaseConfig, Order, SyncItem, AuditEntry } from '../types';
 
 const LS_PRODUCTS = 'stock_products';
 const LS_MOVEMENTS = 'stock_movements';
 const LS_ORDERS = 'stock_orders';
+const LS_AUDITS = 'stock_audits';
 const LS_SYNC_QUEUE = 'stock_sync_queue';
 
 // --- CONFIGURAÇÃO DE CONEXÃO ---
@@ -76,6 +77,8 @@ export const processSyncQueue = async (): Promise<string> => {
          await saveOrder(item.payload, item.isNew || false, true);
       } else if (item.type === 'DELETE_ORDER') {
          await deleteOrder(item.payload, true);
+      } else if (item.type === 'AUDIT') {
+         await saveAuditEntry(item.payload, true);
       }
       successCount++;
     } catch (e) {
@@ -356,4 +359,61 @@ export const deleteOrder = async (id: string, skipLocal: boolean = false): Promi
         const newOrders = orders.filter(o => o.id !== id);
         localStorage.setItem(LS_ORDERS, JSON.stringify(newOrders));
     }
+};
+
+// --- AUDIT METHODS ---
+
+export const fetchAuditEntries = async (): Promise<AuditEntry[]> => {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('audit_entries')
+      .select('*')
+      .order('scanned_at', { ascending: false })
+      .limit(500);
+
+    if (!error && data) {
+      return data.map((a: any) => ({
+        id: a.id,
+        code: a.code,
+        productName: a.product_name,
+        scannedAt: a.scanned_at
+      }));
+    }
+  }
+
+  const local = localStorage.getItem(LS_AUDITS);
+  return local ? JSON.parse(local) : [];
+};
+
+const fetchAuditEntriesFallback = async (): Promise<AuditEntry[]> => {
+  const local = localStorage.getItem(LS_AUDITS);
+  return local ? JSON.parse(local) : [];
+};
+
+export const saveAuditEntry = async (entry: AuditEntry, skipLocal: boolean = false): Promise<void> => {
+  if (supabase) {
+    const payload = {
+      id: entry.id,
+      code: entry.code,
+      product_name: entry.productName,
+      scanned_at: entry.scannedAt
+    };
+
+    const { error } = await supabase.from('audit_entries').upsert([payload]);
+    if (error) throw new Error(error.message);
+  }
+
+  if (!skipLocal) {
+    if (!supabase) {
+      addToSyncQueue({ type: 'AUDIT', action: 'SAVE', payload: entry, id: entry.id });
+    }
+
+    const entries = await fetchAuditEntriesFallback();
+    const exists = entries.find(a => a.id === entry.id);
+    const next = exists
+      ? entries.map(a => (a.id === entry.id ? entry : a))
+      : [entry, ...entries];
+
+    localStorage.setItem(LS_AUDITS, JSON.stringify(next));
+  }
 };
