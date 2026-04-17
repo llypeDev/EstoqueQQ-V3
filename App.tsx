@@ -117,17 +117,17 @@ const App: React.FC = () => {
     const online = storage.initSupabase();
     setIsOnline(online);
     refreshData().then(() => {
-        // Try to sync on startup if online
-        if (online) {
-            const count = storage.getPendingSyncCount();
-            if(count > 0) {
-                 addToast('info', `Enviando ${count} itens pendentes...`);
-                 storage.processSyncQueue().then(res => {
-                     addToast('success', res);
-                     refreshData();
-                 });
-            }
+      // Try to sync on startup if online
+      if (online) {
+        const count = storage.getPendingSyncCount();
+        if (count > 0) {
+          addToast('info', `Enviando ${count} itens pendentes...`);
+          storage.processSyncQueue().then(res => {
+            addToast('success', res);
+            refreshData();
+          });
         }
+      }
     });
   }, [refreshData]);
 
@@ -627,9 +627,9 @@ const App: React.FC = () => {
         </div>
         <div className="flex gap-2">
             {pendingSync > 0 && !isOnline && (
-                 <div className="w-10 h-10 flex items-center justify-center bg-orange-500 rounded-full animate-pulse">
-                     <CloudUpload size={18} />
-                 </div>
+                <div className="w-10 h-10 flex items-center justify-center bg-orange-500 rounded-full animate-pulse">
+                    <CloudUpload size={18} />
+                </div>
             )}
             <button onClick={refreshData} className="w-10 h-10 flex items-center justify-center bg-qq-green-dark/50 hover:bg-qq-green-dark rounded-full transition active:scale-95 backdrop-blur-sm">
                 <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
@@ -976,11 +976,11 @@ const App: React.FC = () => {
                 <div className="space-y-6">
                     {/* Status da Conexão */}
                     <div className={`p-4 rounded-xl border flex items-center gap-3 ${isOnline ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
-                         <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-slate-400'}`}></div>
-                         <div>
-                             <p className="font-bold text-slate-800">{isOnline ? 'Conectado' : 'Modo Offline'}</p>
-                             <p className="text-xs text-slate-500">{isOnline ? 'Sincronizado com Supabase' : 'Dados salvos localmente'}</p>
-                         </div>
+                        <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-slate-400'}`}></div>
+                        <div>
+                            <p className="font-bold text-slate-800">{isOnline ? 'Conectado' : 'Modo Offline'}</p>
+                            <p className="text-xs text-slate-500">{isOnline ? 'Sincronizado com Supabase' : 'Dados salvos localmente'}</p>
+                        </div>
                     </div>
 
                     {pendingSync > 0 && !isOnline && (
@@ -1090,24 +1090,24 @@ const App: React.FC = () => {
                           
                           {/* Item Search */}
                           <div className="relative mb-3">
-                             <Search size={16} className="absolute left-3 top-3 text-slate-400" />
-                             <input 
-                                type="text" 
-                                placeholder="Buscar produto para adicionar..." 
-                                value={orderItemSearch}
-                                onChange={e => setOrderItemSearch(e.target.value)}
-                                className="w-full pl-9 p-2.5 bg-slate-50 rounded-xl text-sm border border-slate-200 outline-none focus:border-qq-green"
-                             />
-                             {orderItemSearch && (
-                                 <div className="absolute top-full left-0 right-0 bg-white shadow-xl border border-slate-100 rounded-xl mt-1 z-10 max-h-40 overflow-y-auto">
-                                     {filteredOrderProducts.map(p => (
-                                         <div key={p.id} onClick={() => { addProductToOrder(p); setOrderItemSearch(''); }} className="p-2 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0">
-                                             <span className="text-sm font-medium truncate flex-1">{p.name}</span>
-                                             <span className="text-xs bg-slate-100 px-1.5 rounded ml-2">Est: {p.qty}</span>
-                                         </div>
-                                     ))}
-                                 </div>
-                             )}
+                            <Search size={16} className="absolute left-3 top-3 text-slate-400" />
+                            <input 
+                              type="text" 
+                              placeholder="Buscar produto para adicionar..." 
+                              value={orderItemSearch}
+                              onChange={e => setOrderItemSearch(e.target.value)}
+                              className="w-full pl-9 p-2.5 bg-slate-50 rounded-xl text-sm border border-slate-200 outline-none focus:border-qq-green"
+                            />
+                            {orderItemSearch && (
+                                <div className="absolute top-full left-0 right-0 bg-white shadow-xl border border-slate-100 rounded-xl mt-1 z-10 max-h-40 overflow-y-auto">
+                                    {filteredOrderProducts.map(p => (
+                                        <div key={p.id} onClick={() => { addProductToOrder(p); setOrderItemSearch(''); }} className="p-2 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0">
+                                            <span className="text-sm font-medium truncate flex-1">{p.name}</span>
+                                            <span className="text-xs bg-slate-100 px-1.5 rounded ml-2">Est: {p.qty}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                           </div>
 
                           {/* Items List */}
