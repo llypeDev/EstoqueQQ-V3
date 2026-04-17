@@ -60,6 +60,7 @@ const App: React.FC = () => {
 
   // File Input Ref
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isPickingRef = useRef(false);
 
   // Order Form State
   const emptyOrderForm: Order = {
@@ -430,65 +431,77 @@ const App: React.FC = () => {
 
   const handlePickItem = async (item: OrderItem, silent: boolean = false) => {
       if (!selectedOrder) return;
-      if (item.qtyPicked >= item.qtyRequested) {
-          if(!silent) addToast('info', 'Item já separado totalmente.');
+      if (isPickingRef.current) {
+          if (!silent) addToast('info', 'Aguarde a baixa anterior finalizar.');
           return;
       }
 
-      // Verify Stock
-      const productInStock = products.find(p => p.id === item.productId);
-      if (!productInStock) {
-          addToast('error', 'Produto não encontrado no estoque.');
-          return;
-      }
-      if (productInStock.qty <= 0) {
-          addToast('error', 'Produto sem estoque!');
-          return;
-      }
+      if (!silent && !window.confirm(`Confirmar baixa de 1x ${item.productName}? Isso descontara do estoque.`)) return;
 
-      if(!silent && !window.confirm(`Confirmar baixa de 1x ${item.productName}? Isso descontará do estoque.`)) return;
-
+      isPickingRef.current = true;
       setIsLoading(true);
       try {
-          // 1. Update Product Stock
-          const newQty = productInStock.qty - 1;
-          await storage.saveProduct({ ...productInStock, qty: newQty }, false);
+          // Always read latest order and stock to avoid stale-state overwrite.
+          const latestOrders = await storage.fetchOrders();
+          const latestOrder = latestOrders.find(o => o.id === selectedOrder.id);
+          if (!latestOrder) {
+              throw new Error('Pedido nao encontrado.');
+          }
 
-          // 2. Create Movement
+          const latestItem = latestOrder.items.find(i => i.productId === item.productId);
+          if (!latestItem) {
+              throw new Error('Item nao pertence ao pedido.');
+          }
+          if (latestItem.qtyPicked >= latestItem.qtyRequested) {
+              if (!silent) addToast('info', 'Item ja separado totalmente.');
+              return;
+          }
+
+          const latestProducts = await storage.fetchProducts();
+          const productInStock = latestProducts.find(p => p.id === item.productId);
+          if (!productInStock) {
+              throw new Error('Produto nao encontrado no estoque.');
+          }
+          if (productInStock.qty <= 0) {
+              throw new Error('Produto sem estoque.');
+          }
+
+          // 1) Decrement stock
+          await storage.saveProduct({ ...productInStock, qty: productInStock.qty - 1 }, false);
+
+          // 2) Register movement
           await storage.saveMovement({
               id: Date.now(),
               date: new Date().toISOString(),
               prodId: item.productId,
-              prodName: item.productName,
+              prodName: latestItem.productName,
               qty: -1,
-              obs: `Separação Pedido #${selectedOrder.orderNumber}`,
-              matricula: selectedOrder.matricula
+              obs: `Separacao Pedido #${latestOrder.orderNumber}`,
+              matricula: latestOrder.matricula
           });
 
-          // 3. Update Order Item
-          const updatedItems = selectedOrder.items.map(i => 
-              i.productId === item.productId 
-              ? { ...i, qtyPicked: i.qtyPicked + 1 } 
-              : i
+          // 3) Increment picked qty on latest order snapshot
+          const updatedItems = latestOrder.items.map(i =>
+              i.productId === item.productId
+                  ? { ...i, qtyPicked: i.qtyPicked + 1 }
+                  : i
           );
-          
-          const updatedOrder: Order = { 
-              ...selectedOrder, 
+
+          const updatedOrder: Order = {
+              ...latestOrder,
               items: updatedItems,
               status: 'pending'
           };
 
           await storage.saveOrder(updatedOrder, false);
-          
-          // Update Local State
           setSelectedOrder(updatedOrder);
-          
-          await refreshData(); 
-          addToast('success', `Item ${item.productName} baixado.`);
+          await refreshData();
+          addToast('success', `Item ${latestItem.productName} baixado.`);
 
       } catch (e: any) {
-          addToast('error', 'Erro na baixa: ' + e.message);
+          addToast('error', 'Erro na baixa: ' + (e?.message || 'falha desconhecida'));
       } finally {
+          isPickingRef.current = false;
           setIsLoading(false);
       }
   };
