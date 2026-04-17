@@ -51,6 +51,14 @@ Atualize este arquivo ao concluir blocos importantes.
   - modais migrados para padrao novo: auditoria, novo produto, transacao, exportar, importar, etiqueta QR
   - modais de pedido e separacao receberam backdrop close e tamanhos mais confortaveis
 - `npm run build` validado apos as melhorias de modal.
+- Scanner com protecao anti-leitura duplicada:
+  - debounce por codigo+modo no `handleScan` (`SCAN_DEBOUNCE_MS = 1000`)
+  - cache de leituras recentes com limpeza automatica (`recentScansRef`)
+  - modo one-shot no `components/Scanner.tsx` para processar apenas 1 leitura por abertura da camera
+- `index.css` criado no projeto:
+  - remove warning de `/index.css` ausente no build
+  - inclui base global de estilo (`body`, `#root`, `pb-safe`) e ajustes visuais do preview da camera
+- `npx tsc --noEmit` e `npm run build` validados apos essas correcoes.
 
 ## Pendencias Tecnicas Relevantes
 - Executar SQL de auditoria no Supabase:
@@ -58,14 +66,14 @@ Atualize este arquivo ao concluir blocos importantes.
   - cria tabela `audit_entries` + indice por `scanned_at`
 - Revisar `index.html`:
   - ha scripts de bootstrap possivelmente duplicados para `index.tsx`
-  - referencia para `/index.css` inexistente no build
 - Revisar `sw.js`:
   - cache inclui `./index.tsx` (nao ideal para build de producao)
 - Revisar `components/modals/QRModal.tsx`:
   - usa `document.write` na impressao (avaliar sanitizacao/seguranca)
 - Revisar `components/Scanner.tsx`:
   - lock de concorrencia de baixa em pedido ja foi aplicado no `App.tsx`
-  - avaliar debounce/controle adicional para leituras repetidas em outros modos
+  - debounce global/order/audit e one-shot da camera ja implementados
+  - proximo passo opcional: parametrizar janela de debounce por modo via configuracao
 - Refatoracao gradual:
   - `App.tsx` esta grande (manutenibilidade)
 
@@ -89,3 +97,5 @@ Atualize este arquivo ao concluir blocos importantes.
 - Configuracao de conexao com banco foi ocultada da interface por decisao de UX.
 - Pop-ups de acao foram padronizados com `ActionModal` para melhorar consistencia e usabilidade.
 - Fechamento por `ESC` e bloqueio de scroll em overlays melhoraram UX mobile/desktop.
+- Scanner agora evita leituras repetidas com debounce + one-shot por sessao de camera.
+- `index.css` foi adicionado para estabilizar o build e centralizar estilos base.
