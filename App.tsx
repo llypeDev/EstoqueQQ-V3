@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  Package, QrCode, ClipboardList, Plus, Search, Settings, 
-  Database, Wifi, WifiOff, AlertTriangle, FileText, ArrowRight, Minus, 
+  Package, QrCode, ClipboardList, Plus, Search,
+  AlertTriangle, FileText, ArrowRight, Minus, 
   Trash2, Box, History, ArrowDown, ArrowUp, Calendar, ShoppingCart, 
   User, Hash, CheckSquare, Edit, X, RefreshCw, ScanLine, Upload, Truck, Building, CloudUpload
 } from 'lucide-react';
@@ -30,7 +30,6 @@ const App: React.FC = () => {
   const [endDate, setEndDate] = useState('');
 
   // Modals State
-  const [showSettings, setShowSettings] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showBaixa, setShowBaixa] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -144,19 +143,6 @@ const App: React.FC = () => {
 
   // --- HANDLERS ---
   
-  const handleReconnect = async () => {
-    const online = storage.initSupabase();
-    setIsOnline(online);
-    if(online) {
-        addToast('success', 'Conexão restabelecida!');
-        await runSync(); // Trigger sync manually
-        await refreshData();
-        setShowSettings(false);
-    } else {
-        addToast('error', 'Falha ao conectar. Verifique internet.');
-    }
-  };
-
   const handleClearHistory = async () => {
       const message = isOnline 
         ? 'ATENÇÃO: Isso apagará TODO o histórico no Banco de Dados. Tem certeza?' 
@@ -345,9 +331,48 @@ const App: React.FC = () => {
       if(!window.confirm('Tem certeza que deseja excluir este pedido?')) return;
       setIsLoading(true);
       try {
+          const orderToDelete = orders.find(o => o.id === id);
+          if (!orderToDelete) {
+              throw new Error('Pedido não encontrado.');
+          }
+
+          // Estorna ao estoque apenas o que já foi baixado (qtyPicked).
+          for (const item of orderToDelete.items) {
+              if (item.qtyPicked <= 0) continue;
+
+              const productInStock = products.find(p => p.id === item.productId);
+              if (productInStock) {
+                  await storage.saveProduct(
+                      { ...productInStock, qty: productInStock.qty + item.qtyPicked },
+                      false
+                  );
+              }
+
+              await storage.saveMovement({
+                  id: Date.now() + Math.floor(Math.random() * 1000),
+                  date: new Date().toISOString(),
+                  prodId: item.productId,
+                  prodName: item.productName,
+                  qty: item.qtyPicked,
+                  obs: `Estorno por exclusão do Pedido #${orderToDelete.orderNumber}`,
+                  matricula: orderToDelete.matricula
+              });
+          }
+
+          // Log de sistema para deixar explícito no histórico.
+          await storage.saveMovement({
+              id: Date.now() + 2000,
+              date: new Date().toISOString(),
+              prodId: null,
+              prodName: `Pedido #${orderToDelete.orderNumber} removido`,
+              qty: 0,
+              obs: `Pedido excluído. Cliente: ${orderToDelete.customerName}`,
+              matricula: orderToDelete.matricula
+          });
+
           await storage.deleteOrder(id);
           await refreshData();
-          addToast('success', 'Pedido excluído.');
+          addToast('success', 'Pedido excluído e estoque estornado.');
       } catch (e: any) {
           addToast('error', e.message);
       } finally {
@@ -712,9 +737,6 @@ const App: React.FC = () => {
             </button>
             <button onClick={() => setShowExport(true)} className="w-10 h-10 flex items-center justify-center bg-qq-green-dark/50 hover:bg-qq-green-dark rounded-full transition active:scale-95 backdrop-blur-sm">
                 <FileText size={18} />
-            </button>
-            <button onClick={() => setShowSettings(true)} className="w-10 h-10 flex items-center justify-center bg-qq-green-dark/50 hover:bg-qq-green-dark rounded-full transition active:scale-95 backdrop-blur-sm">
-                <Settings size={18} />
             </button>
         </div>
       </header>
@@ -1145,52 +1167,6 @@ const App: React.FC = () => {
         </div>
       )}
       
-      {/* Settings Modal - SIMPLIFICADO PARA SEGURANÇA */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="bg-qq-green/10 p-2 rounded-lg text-qq-green">
-                        <Database size={24} />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-800">Conexão</h3>
-                </div>
-                
-                <div className="space-y-6">
-                    {/* Status da Conexão */}
-                    <div className={`p-4 rounded-xl border flex items-center gap-3 ${isOnline ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
-                        <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-slate-400'}`}></div>
-                        <div>
-                            <p className="font-bold text-slate-800">{isOnline ? 'Conectado' : 'Modo Offline'}</p>
-                            <p className="text-xs text-slate-500">{isOnline ? 'Sincronizado com Supabase' : 'Dados salvos localmente'}</p>
-                        </div>
-                    </div>
-
-                    {pendingSync > 0 && !isOnline && (
-                        <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 flex items-center gap-3">
-                            <CloudUpload className="text-orange-500" size={24} />
-                            <div>
-                                <p className="font-bold text-orange-700">{pendingSync} itens pendentes</p>
-                                <p className="text-xs text-orange-600">Conecte-se para enviar.</p>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {!isOnline && (
-                        <p className="text-xs text-slate-400 text-center">
-                            Verifique se as chaves estão configuradas corretamente no código fonte.
-                        </p>
-                    )}
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3">
-                    <button onClick={handleReconnect} className="bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition">Testar Conexão</button>
-                    <button onClick={() => setShowSettings(false)} className="bg-qq-green text-white py-3 rounded-xl font-bold hover:bg-qq-green-dark transition">Fechar</button>
-                </div>
-            </div>
-        </div>
-      )}
-
       {/* Add Product Modal */}
       {showAddProduct && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
