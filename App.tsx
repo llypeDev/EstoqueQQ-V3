@@ -336,25 +336,41 @@ const App: React.FC = () => {
               throw new Error('Pedido não encontrado.');
           }
 
-          // Estorna ao estoque apenas o que já foi baixado (qtyPicked).
+          // Estorna ao estoque apenas o que ja foi baixado (qtyPicked),
+          // sempre usando a versao mais atual dos produtos.
+          const latestProducts = await storage.fetchProducts();
+          const productsById = new Map(latestProducts.map(p => [p.id, p]));
+          const pickedByProduct = new Map<string, { qty: number; productName: string }>();
+
           for (const item of orderToDelete.items) {
               if (item.qtyPicked <= 0) continue;
-
-              const productInStock = products.find(p => p.id === item.productId);
-              if (productInStock) {
-                  await storage.saveProduct(
-                      { ...productInStock, qty: productInStock.qty + item.qtyPicked },
-                      false
-                  );
+              const current = pickedByProduct.get(item.productId);
+              if (current) {
+                  current.qty += item.qtyPicked;
+              } else {
+                  pickedByProduct.set(item.productId, {
+                      qty: item.qtyPicked,
+                      productName: item.productName
+                  });
               }
+          }
+
+          for (const [productId, payload] of pickedByProduct.entries()) {
+              const productInStock = productsById.get(productId);
+              if (!productInStock) continue;
+
+              await storage.saveProduct(
+                  { ...productInStock, qty: productInStock.qty + payload.qty },
+                  false
+              );
 
               await storage.saveMovement({
                   id: Date.now() + Math.floor(Math.random() * 1000),
                   date: new Date().toISOString(),
-                  prodId: item.productId,
-                  prodName: item.productName,
-                  qty: item.qtyPicked,
-                  obs: `Estorno por exclusão do Pedido #${orderToDelete.orderNumber}`,
+                  prodId: productId,
+                  prodName: payload.productName,
+                  qty: payload.qty,
+                  obs: `Estorno por exclusao do Pedido #${orderToDelete.orderNumber}`,
                   matricula: orderToDelete.matricula
               });
           }
