@@ -36,6 +36,21 @@ Atualize este arquivo ao concluir blocos importantes.
   - sync offline/online via fila (`AUDIT`)
 - SQL da tabela de auditoria criado em `supabase_auditoria.sql`.
 - `npx tsc --noEmit` validado sem erros no ambiente de terminal.
+- Correcao de estorno ao excluir pedido:
+  - fluxo passou a usar snapshot mais recente de produtos via `storage.fetchProducts()`
+  - itens estornados sao consolidados por produto antes de atualizar estoque
+  - evita soma incorreta por estado local desatualizado
+- Correcao de baixa em separacao de pedidos:
+  - adicionado lock de concorrencia (`isPickingRef`) para impedir baixa simultanea
+  - baixa agora busca pedido e estoque mais recentes antes de decrementar
+  - evita perda de decrementos em bips/cliques rapidos
+- Melhorias de pop-up/modal:
+  - criado componente reutilizavel `components/ui/ActionModal.tsx`
+  - suporte padrao para header, subtitulo, footer, fechar no backdrop e botao fechar
+  - fechamento global por tecla `ESC` e lock de scroll do `body` quando modal aberto
+  - modais migrados para padrao novo: auditoria, novo produto, transacao, exportar, importar, etiqueta QR
+  - modais de pedido e separacao receberam backdrop close e tamanhos mais confortaveis
+- `npm run build` validado apos as melhorias de modal.
 
 ## Pendencias Tecnicas Relevantes
 - Executar SQL de auditoria no Supabase:
@@ -49,7 +64,8 @@ Atualize este arquivo ao concluir blocos importantes.
 - Revisar `components/modals/QRModal.tsx`:
   - usa `document.write` na impressao (avaliar sanitizacao/seguranca)
 - Revisar `components/Scanner.tsx`:
-  - proteger contra leituras repetidas para evitar baixa duplicada
+  - lock de concorrencia de baixa em pedido ja foi aplicado no `App.tsx`
+  - avaliar debounce/controle adicional para leituras repetidas em outros modos
 - Refatoracao gradual:
   - `App.tsx` esta grande (manutenibilidade)
 
@@ -71,3 +87,5 @@ Atualize este arquivo ao concluir blocos importantes.
 - Importacao de pedidos foi movida para o topo da aba Pedidos para liberar espaco no menu inferior.
 - Exclusao de pedido agora faz estorno de estoque e gera rastreabilidade no historico.
 - Configuracao de conexao com banco foi ocultada da interface por decisao de UX.
+- Pop-ups de acao foram padronizados com `ActionModal` para melhorar consistencia e usabilidade.
+- Fechamento por `ESC` e bloqueio de scroll em overlays melhoraram UX mobile/desktop.
