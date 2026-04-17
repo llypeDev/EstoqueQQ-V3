@@ -1,7 +1,8 @@
 import React from 'react';
 import QRCode from 'react-qr-code';
-import { X, Printer } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { Product } from '../../types';
+import ActionModal from '../ui/ActionModal';
 
 interface QRModalProps {
   product: Product;
@@ -32,16 +33,20 @@ const QRModal: React.FC<QRModalProps> = ({ product, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
-          <X size={24} />
+    <ActionModal
+      title="Etiqueta"
+      subtitle={product.name + ' - SKU ' + product.id}
+      onClose={onClose}
+      maxWidthClass="max-w-md"
+      footer={
+        <button onClick={handlePrint} className="w-full bg-qq-green hover:bg-qq-green-dark text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-qq-green/20 transition-all active:scale-95">
+          <Printer size={20} />
+          Imprimir
         </button>
-        
-        <h3 className="text-xl font-bold text-slate-800 mb-6 text-center">Etiqueta</h3>
-        
+      }
+    >
         <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center">
-            <h4 className="font-bold text-lg mb-4 text-center">{product.name}</h4>
+            <h4 className="font-bold text-lg mb-4 text-center break-words">{product.name}</h4>
             <div className="bg-white p-2 rounded-lg shadow-sm">
                 <QRCode 
                     id="qr-code-svg"
@@ -52,15 +57,7 @@ const QRModal: React.FC<QRModalProps> = ({ product, onClose }) => {
             </div>
             <p className="font-mono font-bold mt-4 text-slate-600">{product.id}</p>
         </div>
-
-        <div className="mt-6">
-            <button onClick={handlePrint} className="w-full bg-qq-green hover:bg-qq-green-dark text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-qq-green/20 transition-all active:scale-95">
-                <Printer size={20} />
-                Imprimir
-            </button>
-        </div>
-      </div>
-    </div>
+    </ActionModal>
   );
 };
 

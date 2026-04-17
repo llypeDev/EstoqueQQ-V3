@@ -11,6 +11,7 @@ import * as exporter from './utils/export';
 import Scanner from './components/Scanner';
 import QRModal from './components/modals/QRModal';
 import Toast from './components/ui/Toast';
+import ActionModal from './components/ui/ActionModal';
 
 const App: React.FC = () => {
   // --- STATE ---
@@ -79,6 +80,55 @@ const App: React.FC = () => {
   const [orderForm, setOrderForm] = useState<Order>(emptyOrderForm);
   const [orderItemSearch, setOrderItemSearch] = useState('');
 
+  const closeTopOverlay = useCallback(() => {
+    if (showScanner) {
+      setShowScanner(false);
+      return;
+    }
+    if (viewQRProduct) {
+      setViewQRProduct(null);
+      return;
+    }
+    if (selectedAuditDetail) {
+      setSelectedAuditDetail(null);
+      return;
+    }
+    if (showImport) {
+      setShowImport(false);
+      return;
+    }
+    if (showExport) {
+      setShowExport(false);
+      return;
+    }
+    if (showBaixa) {
+      setShowBaixa(false);
+      setSelectedProduct(null);
+      return;
+    }
+    if (showOrderPicking) {
+      setShowOrderPicking(false);
+      return;
+    }
+    if (showOrderForm) {
+      setShowOrderForm(false);
+      return;
+    }
+    if (showAddProduct) {
+      setShowAddProduct(false);
+    }
+  }, [
+    selectedAuditDetail,
+    showAddProduct,
+    showBaixa,
+    showExport,
+    showImport,
+    showOrderForm,
+    showOrderPicking,
+    showScanner,
+    viewQRProduct
+  ]);
+
   // --- HELPERS ---
   const addToast = (type: ToastMessage['type'], text: string) => {
     const id = Date.now();
@@ -141,6 +191,48 @@ const App: React.FC = () => {
       }
     });
   }, [refreshData]);
+
+  useEffect(() => {
+    const hasOverlayOpen = Boolean(
+      showAddProduct ||
+      showBaixa ||
+      showExport ||
+      showImport ||
+      showOrderForm ||
+      showOrderPicking ||
+      showScanner ||
+      selectedAuditDetail ||
+      viewQRProduct
+    );
+
+    if (!hasOverlayOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeTopOverlay();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    closeTopOverlay,
+    selectedAuditDetail,
+    showAddProduct,
+    showBaixa,
+    showExport,
+    showImport,
+    showOrderForm,
+    showOrderPicking,
+    showScanner,
+    viewQRProduct
+  ]);
 
   // --- HANDLERS ---
   
@@ -1158,66 +1250,101 @@ const App: React.FC = () => {
       
       {/* Audit Detail Modal */}
       {selectedAuditDetail && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative">
-                <button onClick={() => setSelectedAuditDetail(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
-                    <X size={24} />
-                </button>
-                
-                <h3 className="text-xl font-bold text-slate-800 mb-5">Detalhe da Auditoria</h3>
-                
-                <div className="space-y-3 text-sm">
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <p className="text-xs text-slate-500 mb-1">Nome Completo</p>
-                        <p className="font-bold text-slate-800">{selectedAuditDetail.productName}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <p className="text-xs text-slate-500 mb-1">SKU</p>
-                        <p className="font-mono font-bold text-slate-800">{selectedAuditDetail.code}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <p className="text-xs text-slate-500 mb-1">Quantidade</p>
-                        <p className="font-bold text-slate-800">{selectedAuditDetail.qty}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <p className="text-xs text-slate-500 mb-1">Data e Hora da Auditoria</p>
-                        <p className="font-bold text-slate-800">
-                            {new Date(selectedAuditDetail.lastScannedAt).toLocaleString('pt-BR')}
-                        </p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <p className="text-xs text-slate-500 mb-1">Estoque Atual no Sistema</p>
-                        <p className="font-bold text-slate-800">
-                            {selectedAuditDetail.stockQty === null ? 'Nao encontrado' : selectedAuditDetail.stockQty}
-                        </p>
-                    </div>
-                </div>
+        <ActionModal
+          title="Detalhe da auditoria"
+          subtitle="Resumo completo do item bipado"
+          onClose={() => setSelectedAuditDetail(null)}
+          maxWidthClass="max-w-md"
+        >
+          <div className="space-y-3 text-sm">
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <p className="text-xs text-slate-500 mb-1">Nome completo</p>
+              <p className="font-bold text-slate-800">{selectedAuditDetail.productName}</p>
             </div>
-        </div>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <p className="text-xs text-slate-500 mb-1">SKU</p>
+              <p className="font-mono font-bold text-slate-800">{selectedAuditDetail.code}</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <p className="text-xs text-slate-500 mb-1">Quantidade</p>
+              <p className="font-bold text-slate-800">{selectedAuditDetail.qty}</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <p className="text-xs text-slate-500 mb-1">Data e hora da auditoria</p>
+              <p className="font-bold text-slate-800">
+                {new Date(selectedAuditDetail.lastScannedAt).toLocaleString('pt-BR')}
+              </p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <p className="text-xs text-slate-500 mb-1">Estoque atual no sistema</p>
+              <p className="font-bold text-slate-800">
+                {selectedAuditDetail.stockQty === null ? 'Nao encontrado' : selectedAuditDetail.stockQty}
+              </p>
+            </div>
+          </div>
+        </ActionModal>
       )}
       
-      {/* Add Product Modal */}
+            {/* Add Product Modal */}
       {showAddProduct && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-xl font-bold text-slate-800 mb-6 text-center">Novo Produto</h3>
-                <div className="space-y-4">
-                    <input type="text" placeholder="Código (Barras/QR)" value={newProdForm.id} onChange={e => setNewProdForm({...newProdForm, id: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-qq-green outline-none" />
-                    <input type="text" placeholder="Nome do Produto" value={newProdForm.name} onChange={e => setNewProdForm({...newProdForm, name: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-qq-green outline-none" />
-                    <input type="number" placeholder="Quantidade Inicial" value={newProdForm.qty} onChange={e => setNewProdForm({...newProdForm, qty: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-qq-green outline-none" />
-                </div>
-                <div className="flex gap-3 mt-6">
-                    <button onClick={() => setShowAddProduct(false)} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold">Cancelar</button>
-                    <button onClick={handleSaveProduct} className="flex-1 bg-qq-green text-white py-3 rounded-xl font-bold">Salvar</button>
-                </div>
+        <ActionModal
+          title="Novo produto"
+          subtitle="Cadastre SKU, nome e quantidade inicial"
+          onClose={() => setShowAddProduct(false)}
+          maxWidthClass="max-w-md"
+          footer={
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAddProduct(false)}
+                className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveProduct}
+                className="flex-1 bg-qq-green hover:bg-qq-green-dark text-white py-3 rounded-xl font-bold transition shadow-lg shadow-green-100"
+              >
+                Salvar
+              </button>
             </div>
-        </div>
+          }
+        >
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Codigo (Barras/QR)"
+              value={newProdForm.id}
+              onChange={e => setNewProdForm({ ...newProdForm, id: e.target.value })}
+              className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-qq-green outline-none"
+            />
+            <input
+              type="text"
+              placeholder="Nome do produto"
+              value={newProdForm.name}
+              onChange={e => setNewProdForm({ ...newProdForm, name: e.target.value })}
+              className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-qq-green outline-none"
+            />
+            <input
+              type="number"
+              placeholder="Quantidade inicial"
+              value={newProdForm.qty}
+              onChange={e => setNewProdForm({ ...newProdForm, qty: e.target.value })}
+              className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-qq-green outline-none"
+            />
+          </div>
+        </ActionModal>
       )}
 
       {/* Create/Edit Order Modal */}
       {showOrderForm && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-              <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+            onMouseDown={(event) => { if (event.target === event.currentTarget) setShowOrderForm(false); }}
+          >
+              <div
+                className="bg-white w-full max-w-2xl rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold text-slate-800">
                         {orderForm.orderNumber ? 'Editar Pedido' : 'Novo Pedido'}
@@ -1335,8 +1462,14 @@ const App: React.FC = () => {
 
       {/* Picking Modal */}
       {showOrderPicking && selectedOrder && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-              <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+            onMouseDown={(event) => { if (event.target === event.currentTarget) setShowOrderPicking(false); }}
+          >
+              <div
+                className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
                   <div className="flex justify-between items-start mb-4">
                     <div>
                         <h3 className="text-xl font-bold text-slate-800">Separação #{selectedOrder.orderNumber}</h3>
@@ -1404,139 +1537,179 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* Transaction Modal (formerly Baixa) */}
+            {/* Transaction Modal (formerly Baixa) */}
       {showBaixa && selectedProduct && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-                
-                {/* Switcher: Entrada / Saída */}
-                <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-                    <button 
-                        onClick={() => setTransactionType('out')}
-                        className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${transactionType === 'out' ? 'bg-white text-qq-yellow shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        <ArrowDown size={16} /> Saída
-                    </button>
-                    <button 
-                        onClick={() => setTransactionType('in')}
-                        className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${transactionType === 'in' ? 'bg-white text-qq-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        <ArrowUp size={16} /> Entrada
-                    </button>
-                </div>
+        <ActionModal
+          title="Movimentar estoque"
+          subtitle={selectedProduct.name + ' - SKU ' + selectedProduct.id}
+          onClose={() => { setShowBaixa(false); setSelectedProduct(null); }}
+          maxWidthClass="max-w-md"
+        >
+          {/* Switcher: Entrada / Saida */}
+          <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
+            <button
+              onClick={() => setTransactionType('out')}
+              className={[
+                'flex-1 py-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2',
+                transactionType === 'out' ? 'bg-white text-qq-yellow shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              ].join(' ')}
+            >
+              <ArrowDown size={16} /> Saida
+            </button>
+            <button
+              onClick={() => setTransactionType('in')}
+              className={[
+                'flex-1 py-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2',
+                transactionType === 'in' ? 'bg-white text-qq-green shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              ].join(' ')}
+            >
+              <ArrowUp size={16} /> Entrada
+            </button>
+          </div>
 
-                <div className="text-center mb-6">
-                    <h3 className="text-2xl font-bold text-slate-800 leading-tight">{selectedProduct.name}</h3>
-                    <p className="text-slate-500 font-medium mt-1">Em estoque: <span className="font-bold text-slate-800">{selectedProduct.qty}</span></p>
-                </div>
+          <div className="text-center mb-6">
+            <h3 className="text-2xl font-bold text-slate-800 leading-tight">{selectedProduct.name}</h3>
+            <p className="text-slate-500 font-medium mt-1">Em estoque: <span className="font-bold text-slate-800">{selectedProduct.qty}</span></p>
+          </div>
 
-                <div className="flex items-center justify-center gap-4 mb-6">
-                    <button onClick={() => setBaixaForm({...baixaForm, qty: Math.max(1, baixaForm.qty - 1)})} className="w-12 h-12 rounded-full bg-slate-100 text-slate-800 font-bold text-xl hover:bg-slate-200 transition"><Minus size={20} className="mx-auto" /></button>
-                    <div className={`w-24 h-16 border-2 rounded-2xl flex items-center justify-center ${transactionType === 'in' ? 'border-green-100' : 'border-orange-100'}`}>
-                        <input 
-                            type="number" 
-                            value={baixaForm.qty} 
-                            onChange={e => setBaixaForm({...baixaForm, qty: parseInt(e.target.value) || 1})} 
-                            className={`w-full text-center text-2xl font-bold outline-none bg-transparent ${transactionType === 'in' ? 'text-qq-green' : 'text-qq-yellow'}`}
-                        />
-                    </div>
-                    <button onClick={() => setBaixaForm({...baixaForm, qty: baixaForm.qty + 1})} className="w-12 h-12 rounded-full bg-slate-100 text-slate-800 font-bold text-xl hover:bg-slate-200 transition"><Plus size={20} className="mx-auto" /></button>
-                </div>
-                
-                <div className="space-y-3">
-                    {/* Campo de Matrícula (Acima da observação) */}
-                    <input 
-                        type="text"
-                        placeholder="Matrícula do Funcionário"
-                        value={baixaForm.matricula}
-                        onChange={e => setBaixaForm({...baixaForm, matricula: e.target.value})}
-                        className={`w-full border-2 rounded-xl p-3 text-sm outline-none ${transactionType === 'in' ? 'focus:border-qq-green border-slate-100' : 'focus:border-qq-yellow border-slate-100'}`}
-                    />
-
-                    <textarea 
-                        placeholder="Observação (Opcional)" 
-                        value={baixaForm.obs}
-                        onChange={e => setBaixaForm({...baixaForm, obs: e.target.value})}
-                        rows={2}
-                        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 text-sm outline-none resize-none ${transactionType === 'in' ? 'focus:border-qq-green' : 'focus:border-qq-yellow'}`}
-                    ></textarea>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                    <button onClick={() => { setShowBaixa(false); setSelectedProduct(null); }} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold">Cancelar</button>
-                    <button 
-                        onClick={handleConfirmTransaction} 
-                        className={`flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition active:scale-95 ${transactionType === 'in' ? 'bg-qq-green hover:bg-qq-green-dark shadow-green-200' : 'bg-qq-yellow hover:bg-qq-yellow-dark shadow-orange-200 text-slate-900'}`}
-                    >
-                        {transactionType === 'in' ? 'Adicionar' : 'Baixar'}
-                    </button>
-                </div>
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <button onClick={() => setBaixaForm({ ...baixaForm, qty: Math.max(1, baixaForm.qty - 1) })} className="w-12 h-12 rounded-full bg-slate-100 text-slate-800 font-bold text-xl hover:bg-slate-200 transition">
+              <Minus size={20} className="mx-auto" />
+            </button>
+            <div className={[
+              'w-24 h-16 border-2 rounded-2xl flex items-center justify-center',
+              transactionType === 'in' ? 'border-green-100' : 'border-orange-100'
+            ].join(' ')}>
+              <input
+                type="number"
+                value={baixaForm.qty}
+                onChange={e => setBaixaForm({ ...baixaForm, qty: parseInt(e.target.value) || 1 })}
+                className={[
+                  'w-full text-center text-2xl font-bold outline-none bg-transparent',
+                  transactionType === 'in' ? 'text-qq-green' : 'text-qq-yellow'
+                ].join(' ')}
+              />
             </div>
-        </div>
+            <button onClick={() => setBaixaForm({ ...baixaForm, qty: baixaForm.qty + 1 })} className="w-12 h-12 rounded-full bg-slate-100 text-slate-800 font-bold text-xl hover:bg-slate-200 transition">
+              <Plus size={20} className="mx-auto" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Matricula do funcionario"
+              value={baixaForm.matricula}
+              onChange={e => setBaixaForm({ ...baixaForm, matricula: e.target.value })}
+              className={[
+                'w-full border-2 rounded-xl p-3 text-sm outline-none border-slate-100',
+                transactionType === 'in' ? 'focus:border-qq-green' : 'focus:border-qq-yellow'
+              ].join(' ')}
+            />
+
+            <textarea
+              placeholder="Observacao (Opcional)"
+              value={baixaForm.obs}
+              onChange={e => setBaixaForm({ ...baixaForm, obs: e.target.value })}
+              rows={2}
+              className={[
+                'w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 text-sm outline-none resize-none',
+                transactionType === 'in' ? 'focus:border-qq-green' : 'focus:border-qq-yellow'
+              ].join(' ')}
+            ></textarea>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button onClick={() => { setShowBaixa(false); setSelectedProduct(null); }} className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold transition">
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmTransaction}
+              className={[
+                'flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition active:scale-95',
+                transactionType === 'in'
+                  ? 'bg-qq-green hover:bg-qq-green-dark shadow-green-200'
+                  : 'bg-qq-yellow hover:bg-qq-yellow-dark shadow-orange-200 text-slate-900'
+              ].join(' ')}
+            >
+              {transactionType === 'in' ? 'Adicionar' : 'Baixar'}
+            </button>
+          </div>
+        </ActionModal>
       )}
 
-      {/* Export Modal */}
+            {/* Export Modal */}
       {showExport && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-xl font-bold text-slate-800 mb-6 text-center">Exportar Dados</h3>
-                <div className="space-y-3">
-                    <button onClick={() => exporter.exportStockCSV(products)} className="w-full flex items-center p-4 rounded-xl border-2 border-qq-green/20 bg-green-50/50 text-qq-green font-bold hover:bg-green-50 transition">
-                        <Package size={24} className="mr-3" />
-                        Estoque Atual (.csv)
-                    </button>
-                    <button onClick={() => exporter.exportMovementsCSV(movements)} className="w-full flex items-center p-4 rounded-xl border-2 border-qq-yellow/20 bg-yellow-50/50 text-yellow-700 font-bold hover:bg-yellow-50 transition">
-                        <History size={24} className="mr-3" />
-                        Histórico (.csv)
-                    </button>
-                    <button onClick={() => exporter.exportOrdersCSV(orders)} className="w-full flex items-center p-4 rounded-xl border-2 border-blue-400/20 bg-blue-50/50 text-blue-700 font-bold hover:bg-blue-50 transition">
-                        <ShoppingCart size={24} className="mr-3" />
-                        Relatório Pedidos (.csv)
-                    </button>
-                </div>
-                <button onClick={() => setShowExport(false)} className="w-full mt-6 bg-slate-100 py-3 rounded-xl font-bold text-slate-600">Fechar</button>
-            </div>
-        </div>
+        <ActionModal
+          title="Exportar dados"
+          subtitle="Escolha o tipo de relatorio para baixar"
+          onClose={() => setShowExport(false)}
+          maxWidthClass="max-w-md"
+          footer={
+            <button onClick={() => setShowExport(false)} className="w-full bg-slate-200 hover:bg-slate-300 py-3 rounded-xl font-bold text-slate-700 transition">
+              Fechar
+            </button>
+          }
+        >
+          <div className="space-y-3">
+            <button onClick={() => exporter.exportStockCSV(products)} className="w-full flex items-center p-4 rounded-xl border-2 border-qq-green/20 bg-green-50/50 text-qq-green font-bold hover:bg-green-50 transition">
+              <Package size={24} className="mr-3" />
+              Estoque atual (.csv)
+            </button>
+            <button onClick={() => exporter.exportMovementsCSV(movements)} className="w-full flex items-center p-4 rounded-xl border-2 border-qq-yellow/20 bg-yellow-50/50 text-yellow-700 font-bold hover:bg-yellow-50 transition">
+              <History size={24} className="mr-3" />
+              Historico (.csv)
+            </button>
+            <button onClick={() => exporter.exportOrdersCSV(orders)} className="w-full flex items-center p-4 rounded-xl border-2 border-blue-400/20 bg-blue-50/50 text-blue-700 font-bold hover:bg-blue-50 transition">
+              <ShoppingCart size={24} className="mr-3" />
+              Relatorio pedidos (.csv)
+            </button>
+          </div>
+        </ActionModal>
       )}
 
       {/* Import Modal */}
       {showImport && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">Importar Pedidos</h3>
-                
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-600 mb-6">
-                    <p className="font-bold mb-2">Formato CSV (separado por ;):</p>
-                    <code className="block bg-white p-2 rounded border border-slate-200 text-slate-500 mb-2 overflow-x-auto whitespace-nowrap">
-                        Numero;Cliente;Filial;Matricula;Data;CodProduto;Qtd
-                    </code>
-                    <p>Exemplo:</p>
-                    <code className="block bg-white p-2 rounded border border-slate-200 text-slate-500 overflow-x-auto whitespace-nowrap">
-                        101;João;01;1234;2023-10-25;789101;2
-                    </code>
-                </div>
+        <ActionModal
+          title="Importar pedidos"
+          subtitle="Carregue um arquivo CSV para criar pedidos em lote"
+          onClose={() => setShowImport(false)}
+          maxWidthClass="max-w-md"
+          footer={
+            <button onClick={() => setShowImport(false)} className="w-full bg-slate-200 hover:bg-slate-300 py-3 rounded-xl font-bold text-slate-700 transition">
+              Cancelar
+            </button>
+          }
+        >
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-600 mb-6">
+            <p className="font-bold mb-2">Formato CSV (separado por ;):</p>
+            <code className="block bg-white p-2 rounded border border-slate-200 text-slate-500 mb-2 overflow-x-auto whitespace-nowrap">
+              Numero;Cliente;Filial;Matricula;Data;CodProduto;Qtd
+            </code>
+            <p>Exemplo:</p>
+            <code className="block bg-white p-2 rounded border border-slate-200 text-slate-500 overflow-x-auto whitespace-nowrap">
+              101;Joao;01;1234;2023-10-25;789101;2
+            </code>
+          </div>
 
-                <div className="space-y-4">
-                    <input 
-                        type="file" 
-                        accept=".csv"
-                        ref={fileInputRef}
-                        onChange={handleImportCSV}
-                        className="hidden"
-                        id="csv-upload"
-                    />
-                    <label 
-                        htmlFor="csv-upload"
-                        className="w-full flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-qq-green hover:bg-green-50/50 transition-colors"
-                    >
-                        <Upload size={32} className="text-slate-400 mb-2" />
-                        <span className="text-sm font-bold text-slate-600">Toque para selecionar arquivo</span>
-                    </label>
-                </div>
-
-                <button onClick={() => setShowImport(false)} className="w-full mt-6 bg-slate-100 py-3 rounded-xl font-bold text-slate-600">Cancelar</button>
-            </div>
-        </div>
+          <div className="space-y-4">
+            <input
+              type="file"
+              accept=".csv"
+              ref={fileInputRef}
+              onChange={handleImportCSV}
+              className="hidden"
+              id="csv-upload"
+            />
+            <label
+              htmlFor="csv-upload"
+              className="w-full flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-qq-green hover:bg-green-50/50 transition-colors"
+            >
+              <Upload size={32} className="text-slate-400 mb-2" />
+              <span className="text-sm font-bold text-slate-600">Toque para selecionar arquivo</span>
+            </label>
+          </div>
+        </ActionModal>
       )}
 
       {/* Scanner Overlay */}
