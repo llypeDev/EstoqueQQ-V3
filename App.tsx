@@ -62,6 +62,8 @@ const App: React.FC = () => {
   // File Input Ref
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isPickingRef = useRef(false);
+  const recentScansRef = useRef<Map<string, number>>(new Map());
+  const SCAN_DEBOUNCE_MS = 1000;
 
   // Order Form State
   const emptyOrderForm: Order = {
@@ -686,40 +688,59 @@ const App: React.FC = () => {
   // --- GENERAL HANDLERS ---
 
   const handleScan = (code: string) => {
+    const normalizedCode = code.trim();
+    if (!normalizedCode) return;
+
+    const scanKey = `${scanMode}:${normalizedCode}`;
+    const now = Date.now();
+    const lastScanAt = recentScansRef.current.get(scanKey) || 0;
+    if (now - lastScanAt < SCAN_DEBOUNCE_MS) {
+        return;
+    }
+    recentScansRef.current.set(scanKey, now);
+
+    if (recentScansRef.current.size > 80) {
+        for (const [key, ts] of recentScansRef.current.entries()) {
+            if (now - ts > SCAN_DEBOUNCE_MS * 5) {
+                recentScansRef.current.delete(key);
+            }
+        }
+    }
+
     setShowScanner(false);
 
     if (scanMode === 'global') {
         // Global Mode (Check Stock / Transaction)
-        const prod = products.find(p => p.id === code);
+        const prod = products.find(p => p.id === normalizedCode);
         if (prod) {
           setSelectedProduct(prod);
-          setTransactionType('out'); 
+          setTransactionType('out');
           setBaixaForm(prev => ({ ...prev, qty: 1, obs: '' }));
           setShowBaixa(true);
         } else {
-            if(window.confirm(`Produto ${code} não encontrado. Deseja cadastrar?`)) {
-                setNewProdForm({ id: code, name: '', qty: '' });
+            if(window.confirm(`Produto ${normalizedCode} nao encontrado. Deseja cadastrar?`)) {
+                setNewProdForm({ id: normalizedCode, name: '', qty: '' });
                 setShowAddProduct(true);
             }
         }
     } else if (scanMode === 'order' && selectedOrder) {
         // Order Picking Mode
-        const item = selectedOrder.items.find(i => i.productId === code);
-        
+        const item = selectedOrder.items.find(i => i.productId === normalizedCode);
+
         if (item) {
             handlePickItem(item, true); // Silent = true (skip confirm)
         } else {
-            addToast('error', 'Este produto não pertence a este pedido.');
+            addToast('error', 'Este produto nao pertence a este pedido.');
         }
-        
+
         // Reset mode after scan
         setScanMode('global');
     } else if (scanMode === 'audit') {
-        const product = products.find(p => p.id === code);
+        const product = products.find(p => p.id === normalizedCode);
         const entry: AuditEntry = {
             id: crypto.randomUUID ? crypto.randomUUID() : `AUD-${Date.now()}`,
-            code,
-            productName: product?.name || 'Produto nÃ£o cadastrado',
+            code: normalizedCode,
+            productName: product?.name || 'Produto nao cadastrado',
             scannedAt: new Date().toISOString()
         };
 

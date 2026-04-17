@@ -11,9 +11,11 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const mountedRef = useRef(false);
+  const scanHandledRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
+    scanHandledRef.current = false;
     const regionId = "html5qr-code-full-region";
 
     const startScanner = async () => {
@@ -30,9 +32,20 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onClose }) => {
         await scanner.start(
           { facingMode: "environment" },
           config,
-          (decodedText) => {
-            if(mountedRef.current) {
-                onScan(decodedText);
+          async (decodedText) => {
+            if (!mountedRef.current || scanHandledRef.current) return;
+            scanHandledRef.current = true;
+
+            try {
+              if (scannerRef.current?.isScanning) {
+                await scannerRef.current.stop();
+              }
+            } catch {
+              // Scanner can already be stopping during unmount; ignore.
+            }
+
+            if (mountedRef.current) {
+              onScan(decodedText);
             }
           },
           (errorMessage) => {
@@ -52,6 +65,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onClose }) => {
 
     return () => {
         mountedRef.current = false;
+        scanHandledRef.current = true;
         clearTimeout(timer);
         if (scannerRef.current && scannerRef.current.isScanning) {
             scannerRef.current.stop().then(() => {

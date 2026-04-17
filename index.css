@@ -1,0 +1,40 @@
+:root {
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #f8fafc;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Hide scrollbar for cleaner mobile UI */
+::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+/* Keep scanner preview fully contained in overlay */
+#html5qr-code-full-region {
+  width: 100%;
+  height: 100%;
+}
+
+#html5qr-code-full-region video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
