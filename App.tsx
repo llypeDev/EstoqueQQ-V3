@@ -45,6 +45,14 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [viewQRProduct, setViewQRProduct] = useState<Product | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedAuditDetail, setSelectedAuditDetail] = useState<{
+    code: string;
+    productName: string;
+    size: string;
+    qty: number;
+    stockQty: number | null;
+    lastScannedAt: string;
+  } | null>(null);
 
   // Form States
   const [newProdForm, setNewProdForm] = useState({ id: '', name: '', qty: '' });
@@ -636,13 +644,22 @@ const App: React.FC = () => {
     p.id.toLowerCase().includes(orderItemSearch.toLowerCase())
   );
 
+  const extractSizeFromName = (name: string): string => {
+    const match = name.match(/(?:tam(?:anho)?[:\s-]*)?(\d{2}|pp|p|m|g|gg|xg|xxg|u)\b/i);
+    return match ? match[1].toUpperCase() : 'Nao informado';
+  };
+
   const auditBySku = audits.reduce((acc, item) => {
+    const stockProduct = products.find(p => p.id === item.code);
+    const detectedSize = extractSizeFromName(item.productName);
     const existing = acc[item.code];
     if (existing) {
       existing.qty += 1;
       if (new Date(item.scannedAt).getTime() > new Date(existing.lastScannedAt).getTime()) {
         existing.lastScannedAt = item.scannedAt;
         existing.productName = item.productName;
+        existing.size = detectedSize;
+        existing.stockQty = stockProduct ? stockProduct.qty : null;
       }
       return acc;
     }
@@ -650,11 +667,13 @@ const App: React.FC = () => {
     acc[item.code] = {
       code: item.code,
       productName: item.productName,
+      size: detectedSize,
       qty: 1,
+      stockQty: stockProduct ? stockProduct.qty : null,
       lastScannedAt: item.scannedAt
     };
     return acc;
-  }, {} as Record<string, { code: string; productName: string; qty: number; lastScannedAt: string }>);
+  }, {} as Record<string, { code: string; productName: string; size: string; qty: number; stockQty: number | null; lastScannedAt: string }>);
 
   const auditRows = Object.values(auditBySku).sort((a, b) => {
     if (b.qty !== a.qty) return b.qty - a.qty;
@@ -1029,7 +1048,11 @@ const App: React.FC = () => {
                     </div>
                 ) : (
                     auditRows.map(item => (
-                        <div key={item.code} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                        <button
+                            key={item.code}
+                            onClick={() => setSelectedAuditDetail(item)}
+                            className="w-full text-left bg-white p-4 rounded-xl border border-slate-100 shadow-sm active:scale-[0.99] transition-transform"
+                        >
                             <div className="flex justify-between items-start gap-3">
                                 <div className="min-w-0">
                                     <p className="font-bold text-slate-800 truncate">{item.productName}</p>
@@ -1044,7 +1067,7 @@ const App: React.FC = () => {
                                     </p>
                                 </div>
                             </div>
-                        </div>
+                        </button>
                     ))
                 )}
             </div>
@@ -1081,6 +1104,52 @@ const App: React.FC = () => {
       </nav>
 
       {/* --- MODALS --- */}
+      
+      {/* Audit Detail Modal */}
+      {selectedAuditDetail && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative">
+                <button onClick={() => setSelectedAuditDetail(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                    <X size={24} />
+                </button>
+                
+                <h3 className="text-xl font-bold text-slate-800 mb-5">Detalhe da Auditoria</h3>
+                
+                <div className="space-y-3 text-sm">
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <p className="text-xs text-slate-500 mb-1">Nome Completo</p>
+                        <p className="font-bold text-slate-800">{selectedAuditDetail.productName}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <p className="text-xs text-slate-500 mb-1">SKU</p>
+                        <p className="font-mono font-bold text-slate-800">{selectedAuditDetail.code}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                            <p className="text-xs text-slate-500 mb-1">Tamanho</p>
+                            <p className="font-bold text-slate-800">{selectedAuditDetail.size}</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                            <p className="text-xs text-slate-500 mb-1">Quantidade</p>
+                            <p className="font-bold text-slate-800">{selectedAuditDetail.qty}</p>
+                        </div>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <p className="text-xs text-slate-500 mb-1">Data e Hora da Auditoria</p>
+                        <p className="font-bold text-slate-800">
+                            {new Date(selectedAuditDetail.lastScannedAt).toLocaleString('pt-BR')}
+                        </p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <p className="text-xs text-slate-500 mb-1">Estoque Atual no Sistema</p>
+                        <p className="font-bold text-slate-800">
+                            {selectedAuditDetail.stockQty === null ? 'Nao encontrado' : selectedAuditDetail.stockQty}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
       
       {/* Settings Modal - SIMPLIFICADO PARA SEGURANÇA */}
       {showSettings && (
