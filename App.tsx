@@ -53,6 +53,12 @@ const App: React.FC = () => {
     stockQty: number | null;
     lastScannedAt: string;
   } | null>(null);
+  const [showFinalizeAuditModal, setShowFinalizeAuditModal] = useState(false);
+  const [auditFinalizeForm, setAuditFinalizeForm] = useState({
+    auditorMatricula: '',
+    startedAt: '',
+    endedAt: ''
+  });
 
   // Form States
   const [newProdForm, setNewProdForm] = useState({ id: '', name: '', qty: '' });
@@ -99,6 +105,10 @@ const App: React.FC = () => {
       setShowImport(false);
       return;
     }
+    if (showFinalizeAuditModal) {
+      setShowFinalizeAuditModal(false);
+      return;
+    }
     if (showExport) {
       setShowExport(false);
       return;
@@ -124,6 +134,7 @@ const App: React.FC = () => {
     showAddProduct,
     showBaixa,
     showExport,
+    showFinalizeAuditModal,
     showImport,
     showOrderForm,
     showOrderPicking,
@@ -199,6 +210,7 @@ const App: React.FC = () => {
       showAddProduct ||
       showBaixa ||
       showExport ||
+      showFinalizeAuditModal ||
       showImport ||
       showOrderForm ||
       showOrderPicking ||
@@ -229,6 +241,7 @@ const App: React.FC = () => {
     showAddProduct,
     showBaixa,
     showExport,
+    showFinalizeAuditModal,
     showImport,
     showOrderForm,
     showOrderPicking,
@@ -774,6 +787,60 @@ const App: React.FC = () => {
     if(code) handleScan(code);
   };
 
+  const toDateTimeLocalValue = (date: Date): string => {
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
+  const openFinalizeAudit = () => {
+    if (audits.length === 0) {
+      addToast('info', 'Nao ha itens bipados para finalizar.');
+      return;
+    }
+
+    const scanTimes = audits
+      .map(a => new Date(a.scannedAt).getTime())
+      .filter(ts => !Number.isNaN(ts))
+      .sort((a, b) => a - b);
+
+    const defaultStart = scanTimes.length > 0 ? toDateTimeLocalValue(new Date(scanTimes[0])) : '';
+    const defaultEnd = scanTimes.length > 0 ? toDateTimeLocalValue(new Date(scanTimes[scanTimes.length - 1])) : '';
+
+    setAuditFinalizeForm(prev => ({
+      auditorMatricula: prev.auditorMatricula || '',
+      startedAt: defaultStart,
+      endedAt: defaultEnd
+    }));
+    setShowFinalizeAuditModal(true);
+  };
+
+  const handleFinalizeAudit = () => {
+    if (!auditFinalizeForm.auditorMatricula.trim()) {
+      addToast('error', 'Informe a matricula do auditor.');
+      return;
+    }
+    if (!auditFinalizeForm.startedAt || !auditFinalizeForm.endedAt) {
+      addToast('error', 'Informe inicio e fim da auditoria.');
+      return;
+    }
+
+    const started = new Date(auditFinalizeForm.startedAt).getTime();
+    const ended = new Date(auditFinalizeForm.endedAt).getTime();
+    if (!Number.isNaN(started) && !Number.isNaN(ended) && started > ended) {
+      addToast('error', 'Data/hora inicial nao pode ser maior que a final.');
+      return;
+    }
+
+    exporter.exportAuditSummaryExcel(auditRows, {
+      auditorMatricula: auditFinalizeForm.auditorMatricula.trim(),
+      startedAt: auditFinalizeForm.startedAt,
+      endedAt: auditFinalizeForm.endedAt
+    });
+
+    setShowFinalizeAuditModal(false);
+    addToast('success', 'Resumo da auditoria exportado em Excel.');
+  };
+
   const openTransactionModal = (product: Product) => {
       setSelectedProduct(product);
       setTransactionType('out');
@@ -1181,12 +1248,20 @@ const App: React.FC = () => {
         <div className="p-6 animate-fade-in space-y-4">
             <div className="flex justify-between items-center mb-2">
                 <h2 className="text-2xl font-bold text-slate-800">Auditoria</h2>
-                <button
-                    onClick={openAuditScanner}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 active:scale-95"
-                >
-                    <ScanLine size={18} /> Bipar
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={openFinalizeAudit}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 active:scale-95"
+                    >
+                        <FileText size={16} /> Finalizar auditoria
+                    </button>
+                    <button
+                        onClick={openAuditScanner}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 active:scale-95"
+                    >
+                        <ScanLine size={18} /> Bipar
+                    </button>
+                </div>
             </div>
 
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
@@ -1301,6 +1376,64 @@ const App: React.FC = () => {
               <p className="font-bold text-slate-800">
                 {selectedAuditDetail.stockQty === null ? 'Nao encontrado' : selectedAuditDetail.stockQty}
               </p>
+            </div>
+          </div>
+        </ActionModal>
+      )}
+
+      {showFinalizeAuditModal && (
+        <ActionModal
+          title="Finalizar auditoria"
+          subtitle="Informe os dados para gerar o Excel de resumo"
+          onClose={() => setShowFinalizeAuditModal(false)}
+          maxWidthClass="max-w-md"
+          footer={
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowFinalizeAuditModal(false)}
+                className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleFinalizeAudit}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-emerald-100"
+              >
+                Gerar Excel
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 uppercase">Matricula do Auditor</label>
+              <input
+                type="text"
+                value={auditFinalizeForm.auditorMatricula}
+                onChange={e => setAuditFinalizeForm(prev => ({ ...prev, auditorMatricula: e.target.value }))}
+                placeholder="Ex: 12345"
+                className="w-full mt-1 border-2 border-slate-200 rounded-xl p-3 focus:border-emerald-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 uppercase">Data/Hora de Inicio</label>
+              <input
+                type="datetime-local"
+                value={auditFinalizeForm.startedAt}
+                onChange={e => setAuditFinalizeForm(prev => ({ ...prev, startedAt: e.target.value }))}
+                className="w-full mt-1 border-2 border-slate-200 rounded-xl p-3 focus:border-emerald-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 uppercase">Data/Hora de Fim</label>
+              <input
+                type="datetime-local"
+                value={auditFinalizeForm.endedAt}
+                onChange={e => setAuditFinalizeForm(prev => ({ ...prev, endedAt: e.target.value }))}
+                className="w-full mt-1 border-2 border-slate-200 rounded-xl p-3 focus:border-emerald-500 outline-none"
+              />
             </div>
           </div>
         </ActionModal>
