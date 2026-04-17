@@ -59,6 +59,14 @@ Atualize este arquivo ao concluir blocos importantes.
   - remove warning de `/index.css` ausente no build
   - inclui base global de estilo (`body`, `#root`, `pb-safe`) e ajustes visuais do preview da camera
 - `npx tsc --noEmit` e `npm run build` validados apos essas correcoes.
+- Finalizacao da auditoria implementada:
+  - botao `Finalizar auditoria` adicionado na aba de auditoria
+  - pop-up de finalizacao com campos: matricula do auditor, data/hora de inicio e data/hora de fim
+  - validacao de periodo (inicio nao pode ser maior que fim)
+  - exportacao de resumo completo em arquivo Excel (`.xls`) via `utils/export.ts`
+  - nome do arquivo inclui matricula + inicio + fim da auditoria
+  - planilha inclui: SKU, produto, tamanho, quantidade bipada, estoque atual, divergencia e ultimo bip
+  - metadados no topo da planilha: auditor, periodo, total bipado e total de SKUs
 
 ## Pendencias Tecnicas Relevantes
 - Executar SQL de auditoria no Supabase:
@@ -99,3 +107,4 @@ Atualize este arquivo ao concluir blocos importantes.
 - Fechamento por `ESC` e bloqueio de scroll em overlays melhoraram UX mobile/desktop.
 - Scanner agora evita leituras repetidas com debounce + one-shot por sessao de camera.
 - `index.css` foi adicionado para estabilizar o build e centralizar estilos base.
+- Processo de auditoria agora possui fechamento formal com exportacao de resumo em Excel.
