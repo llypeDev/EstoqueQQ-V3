@@ -13,6 +13,14 @@ import QRModal from './components/modals/QRModal';
 import Toast from './components/ui/Toast';
 import ActionModal from './components/ui/ActionModal';
 
+type ConfirmDialogState = {
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: 'danger' | 'primary';
+};
+
 const App: React.FC = () => {
   // --- STATE ---
   const [view, setView] = useState<ViewState>('home');
@@ -41,6 +49,7 @@ const App: React.FC = () => {
   // Order Modals
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [showOrderPicking, setShowOrderPicking] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [viewQRProduct, setViewQRProduct] = useState<Product | null>(null);
@@ -69,6 +78,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isPickingRef = useRef(false);
   const recentScansRef = useRef<Map<string, number>>(new Map());
+  const confirmResolverRef = useRef<((value: boolean) => void) | null>(null);
   const SCAN_DEBOUNCE_MS = 1000;
 
   // Order Form State
@@ -89,6 +99,10 @@ const App: React.FC = () => {
   const [orderItemSearch, setOrderItemSearch] = useState('');
 
   const closeTopOverlay = useCallback(() => {
+    if (confirmDialog) {
+      resolveConfirmDialog(false);
+      return;
+    }
     if (showScanner) {
       setShowScanner(false);
       return;
@@ -130,6 +144,8 @@ const App: React.FC = () => {
       setShowAddProduct(false);
     }
   }, [
+    confirmDialog,
+    resolveConfirmDialog,
     selectedAuditDetail,
     showAddProduct,
     showBaixa,
@@ -152,6 +168,30 @@ const App: React.FC = () => {
   const removeToast = (id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
+
+  const resolveConfirmDialog = useCallback((value: boolean) => {
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(value);
+      confirmResolverRef.current = null;
+    }
+    setConfirmDialog(null);
+  }, []);
+
+  const requestConfirmation = useCallback((dialog: ConfirmDialogState): Promise<boolean> => {
+    setConfirmDialog(dialog);
+    return new Promise<boolean>((resolve) => {
+      confirmResolverRef.current = resolve;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (confirmResolverRef.current) {
+        confirmResolverRef.current(false);
+        confirmResolverRef.current = null;
+      }
+    };
+  }, []);
 
   const refreshData = useCallback(async () => {
     setIsLoading(true);
@@ -219,6 +259,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const hasOverlayOpen = Boolean(
+      confirmDialog ||
       showAddProduct ||
       showBaixa ||
       showExport ||
@@ -249,6 +290,7 @@ const App: React.FC = () => {
     };
   }, [
     closeTopOverlay,
+    confirmDialog,
     selectedAuditDetail,
     showAddProduct,
     showBaixa,
@@ -268,18 +310,25 @@ const App: React.FC = () => {
         ? 'ATENÇÃO: Isso apagará TODO o histórico no Banco de Dados. Tem certeza?' 
         : 'Limpar histórico local?';
       
-      if (window.confirm(message)) {
-          setIsLoading(true);
-          try {
-              await storage.deleteAllMovements();
-              await refreshData();
-              addToast('success', 'Histórico apagado com sucesso.');
-          } catch (e: any) {
-              console.error("Delete Error:", e);
-              addToast('error', 'Erro ao apagar: ' + e.message);
-          } finally {
-              setIsLoading(false);
-          }
+      const confirmed = await requestConfirmation({
+        title: 'Limpar histórico',
+        message,
+        confirmText: 'Sim, limpar',
+        cancelText: 'Cancelar',
+        variant: 'danger'
+      });
+      if (!confirmed) return;
+
+      setIsLoading(true);
+      try {
+          await storage.deleteAllMovements();
+          await refreshData();
+          addToast('success', 'Histórico apagado com sucesso.');
+      } catch (e: any) {
+          console.error("Delete Error:", e);
+          addToast('error', 'Erro ao apagar: ' + e.message);
+      } finally {
+          setIsLoading(false);
       }
   };
 
@@ -448,7 +497,14 @@ const App: React.FC = () => {
   };
 
   const handleDeleteOrder = async (id: string) => {
-      if(!window.confirm('Tem certeza que deseja excluir este pedido?')) return;
+      const confirmed = await requestConfirmation({
+        title: 'Excluir pedido',
+        message: 'Tem certeza que deseja excluir este pedido?',
+        confirmText: 'Sim, excluir',
+        cancelText: 'Cancelar',
+        variant: 'danger'
+      });
+      if (!confirmed) return;
       setIsLoading(true);
       try {
           const orderToDelete = orders.find(o => o.id === id);
@@ -564,7 +620,16 @@ const App: React.FC = () => {
           return;
       }
 
-      if (!silent && !window.confirm(`Confirmar baixa de 1x ${item.productName}? Isso descontara do estoque.`)) return;
+      if (!silent) {
+          const confirmed = await requestConfirmation({
+            title: 'Confirmar baixa',
+            message: `Confirmar baixa de 1x ${item.productName}? Isso descontará do estoque.`,
+            confirmText: 'Confirmar baixa',
+            cancelText: 'Cancelar',
+            variant: 'primary'
+          });
+          if (!confirmed) return;
+      }
 
       isPickingRef.current = true;
       setIsLoading(true);
@@ -721,7 +786,7 @@ const App: React.FC = () => {
 
   // --- GENERAL HANDLERS ---
 
-  const handleScan = (code: string) => {
+  const handleScan = async (code: string) => {
     const normalizedCode = code.trim();
     if (!normalizedCode) return;
 
@@ -752,7 +817,15 @@ const App: React.FC = () => {
           setBaixaForm(prev => ({ ...prev, qty: 1, obs: '' }));
           setShowBaixa(true);
         } else {
-            if(window.confirm(`Produto ${normalizedCode} nao encontrado. Deseja cadastrar?`)) {
+            const shouldRegister = await requestConfirmation({
+              title: 'Produto não encontrado',
+              message: `Produto ${normalizedCode} não encontrado. Deseja cadastrar?`,
+              confirmText: 'Cadastrar produto',
+              cancelText: 'Cancelar',
+              variant: 'primary'
+            });
+
+            if (shouldRegister) {
                 setNewProdForm({ id: normalizedCode, name: '', qty: '' });
                 setShowAddProduct(true);
             }
@@ -1472,7 +1545,41 @@ const App: React.FC = () => {
           </div>
         </ActionModal>
       )}
-      
+
+      {confirmDialog && (
+        <ActionModal
+          title={confirmDialog.title}
+          onClose={() => resolveConfirmDialog(false)}
+          maxWidthClass="max-w-md"
+          closeOnBackdrop={false}
+          footer={
+            <div className="flex gap-3">
+              <button
+                onClick={() => resolveConfirmDialog(false)}
+                className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold transition"
+              >
+                {confirmDialog.cancelText || 'Cancelar'}
+              </button>
+              <button
+                onClick={() => resolveConfirmDialog(true)}
+                className={[
+                  'flex-1 py-3 rounded-xl font-bold transition text-white',
+                  confirmDialog.variant === 'danger'
+                    ? 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200'
+                    : 'bg-qq-green hover:bg-qq-green-dark shadow-lg shadow-green-100'
+                ].join(' ')}
+              >
+                {confirmDialog.confirmText || 'Confirmar'}
+              </button>
+            </div>
+          }
+        >
+          <div className="text-sm text-slate-600 leading-relaxed">
+            <p>{confirmDialog.message}</p>
+          </div>
+        </ActionModal>
+      )}
+	      
             {/* Add Product Modal */}
       {showAddProduct && (
         <ActionModal
