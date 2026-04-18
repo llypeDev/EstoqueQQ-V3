@@ -67,6 +67,30 @@ Atualize este arquivo ao concluir blocos importantes.
   - nome do arquivo inclui matricula + inicio + fim da auditoria
   - planilha inclui: SKU, produto, tamanho, quantidade bipada, estoque atual, divergencia e ultimo bip
   - metadados no topo da planilha: auditor, periodo, total bipado e total de SKUs
+- Integracao de pedidos LP implementada (sincronizacao automatica):
+  - rotina `syncLpOrdersToStockOrders` adicionada em `services/storage.ts`
+  - leitura de `lp_orders` + `lp_order_items`
+  - consolidacao por SKU para montar `items` do pedido
+  - criacao/atualizacao idempotente de pedidos na tabela `orders` do app
+  - sincronizacao executada no `refreshData` da UI (`App.tsx`)
+- Mapeamento de campos LP ajustado para estrutura real do banco:
+  - cliente: prioriza `full_name`
+  - filial: prioriza `segmento`
+  - numero do pedido: prioriza `ticket_number`
+  - parser reforcado para fallback em campos alternativos e payload/json quando existir
+- Exclusao de pedido com limpeza em espelho LP:
+  - `deleteOrder` atualizado para remover tambem em `lp_orders` e `lp_order_items`
+  - exclusao usa referencia de `id` e `orderNumber` para aumentar taxa de acerto
+- Notificacao de exclusao de pedido refinada:
+  - se havia separacao (`qtyPicked > 0`): `Pedido excluido e estoque estornado.`
+  - se nao havia separacao: `Pedido excluido sem separacao. Estoque nao alterado.`
+- Operacao de reconciliacao de estoque por arquivo `Estoque QQ 18.04.XLS` executada:
+  - arquivo identificado como texto UTF-16 tabulado (nao XLS binario)
+  - comparacao XLS x `products` realizada por SKU
+  - 89 SKUs atualizados com sucesso para as quantidades do arquivo
+  - 0 SKUs do XLS sem cadastro
+  - 30 SKUs cadastrados e fora do XLS foram zerados por solicitacao
+  - relatorios JSON gerados na raiz (apoio operacional, podem ser removidos apos uso)
 
 ## Pendencias Tecnicas Relevantes
 - Executar SQL de auditoria no Supabase:
@@ -84,6 +108,9 @@ Atualize este arquivo ao concluir blocos importantes.
   - proximo passo opcional: parametrizar janela de debounce por modo via configuracao
 - Refatoracao gradual:
   - `App.tsx` esta grande (manutenibilidade)
+- Higiene de cadastro:
+  - existem SKUs duplicados em `products`: `210842` e `210849`
+  - avaliar deduplicacao com regra de negocio (merge de saldo e ajuste de historico)
 
 ## Comandos Uteis
 - Dev: `npm run dev`
