@@ -31,7 +31,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/55 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-slate-900/55 backdrop-blur-[2px] z-[70] flex items-center justify-center p-4 animate-fade-in"
       onMouseDown={handleBackdropMouseDown}
     >
       <div
