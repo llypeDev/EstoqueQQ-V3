@@ -474,6 +474,7 @@ const App: React.FC = () => {
                   });
               }
           }
+          const hadSeparatedItems = pickedByProduct.size > 0;
 
           for (const [productId, payload] of pickedByProduct.entries()) {
               const productInStock = productsById.get(productId);
@@ -511,7 +512,12 @@ const App: React.FC = () => {
               orderNumber: orderToDelete.orderNumber
           });
           await refreshData();
-          addToast('success', 'Pedido excluído e estoque estornado.');
+          addToast(
+              'success',
+              hadSeparatedItems
+                ? 'Pedido excluído e estoque estornado.'
+                : 'Pedido excluído sem separação. Estoque não alterado.'
+          );
       } catch (e: any) {
           addToast('error', e.message);
       } finally {
