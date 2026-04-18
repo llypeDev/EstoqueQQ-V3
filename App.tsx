@@ -98,6 +98,30 @@ const App: React.FC = () => {
   const [orderForm, setOrderForm] = useState<Order>(emptyOrderForm);
   const [orderItemSearch, setOrderItemSearch] = useState('');
 
+  const resolveConfirmDialog = useCallback((value: boolean) => {
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(value);
+      confirmResolverRef.current = null;
+    }
+    setConfirmDialog(null);
+  }, []);
+
+  const requestConfirmation = useCallback((dialog: ConfirmDialogState): Promise<boolean> => {
+    setConfirmDialog(dialog);
+    return new Promise<boolean>((resolve) => {
+      confirmResolverRef.current = resolve;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (confirmResolverRef.current) {
+        confirmResolverRef.current(false);
+        confirmResolverRef.current = null;
+      }
+    };
+  }, []);
+
   const closeTopOverlay = useCallback(() => {
     if (confirmDialog) {
       resolveConfirmDialog(false);
@@ -168,30 +192,6 @@ const App: React.FC = () => {
   const removeToast = (id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
-
-  const resolveConfirmDialog = useCallback((value: boolean) => {
-    if (confirmResolverRef.current) {
-      confirmResolverRef.current(value);
-      confirmResolverRef.current = null;
-    }
-    setConfirmDialog(null);
-  }, []);
-
-  const requestConfirmation = useCallback((dialog: ConfirmDialogState): Promise<boolean> => {
-    setConfirmDialog(dialog);
-    return new Promise<boolean>((resolve) => {
-      confirmResolverRef.current = resolve;
-    });
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (confirmResolverRef.current) {
-        confirmResolverRef.current(false);
-        confirmResolverRef.current = null;
-      }
-    };
-  }, []);
 
   const refreshData = useCallback(async () => {
     setIsLoading(true);
