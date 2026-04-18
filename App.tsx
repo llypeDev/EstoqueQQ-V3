@@ -874,6 +874,8 @@ const App: React.FC = () => {
     p.name.toLowerCase().includes(search.toLowerCase()) || 
     p.id.toLowerCase().includes(search.toLowerCase())
   );
+  const totalStockSkus = products.length;
+  const totalStockPieces = products.reduce((acc, p) => acc + (Number.isFinite(Number(p.qty)) ? Number(p.qty) : 0), 0);
 
   const filteredHistory = movements.filter(m => {
       if (!startDate && !endDate) return true;
@@ -986,6 +988,17 @@ const App: React.FC = () => {
                 <button onClick={() => setShowAddProduct(true)} className="bg-qq-yellow hover:bg-qq-yellow-dark text-slate-900 px-4 py-2 rounded-xl text-sm font-bold shadow-md shadow-orange-100 transition flex items-center gap-2 active:scale-95">
                     <Plus size={18} /> Novo
                 </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <p className="text-[11px] uppercase font-bold text-slate-400">SKUs cadastrados</p>
+                    <p className="text-2xl font-extrabold text-slate-800 mt-1">{totalStockSkus.toLocaleString('pt-BR')}</p>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <p className="text-[11px] uppercase font-bold text-slate-400">Total de pecas</p>
+                    <p className="text-2xl font-extrabold text-slate-800 mt-1">{totalStockPieces.toLocaleString('pt-BR')}</p>
+                </div>
             </div>
 
             <div className="relative group">
