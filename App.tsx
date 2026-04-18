@@ -157,6 +157,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     try {
       const prods = await storage.fetchProducts();
+      const lpSync = await storage.syncLpOrdersToStockOrders(prods);
       const movs = await storage.fetchMovements();
       const ords = await storage.fetchOrders();
       const auditItems = await storage.fetchAuditEntries();
@@ -164,6 +165,17 @@ const App: React.FC = () => {
       setMovements(movs);
       setOrders(ords);
       setAudits(auditItems);
+
+      if (lpSync.imported > 0 || lpSync.updated > 0) {
+        addToast(
+          'success',
+          `Pedidos LP sincronizados: ${lpSync.imported} novos e ${lpSync.updated} atualizados.`
+        );
+      }
+
+      if (lpSync.errors > 0) {
+        addToast('error', `Falha ao sincronizar ${lpSync.errors} pedido(s) do LP.`);
+      }
       
       // Check for pending sync items
       setPendingSync(storage.getPendingSyncCount());
@@ -494,7 +506,10 @@ const App: React.FC = () => {
               matricula: orderToDelete.matricula
           });
 
-          await storage.deleteOrder(id);
+          await storage.deleteOrder({
+              id: orderToDelete.id,
+              orderNumber: orderToDelete.orderNumber
+          });
           await refreshData();
           addToast('success', 'Pedido excluído e estoque estornado.');
       } catch (e: any) {
