@@ -22,6 +22,19 @@ type ConfirmDialogState = {
 };
 
 const App: React.FC = () => {
+  const isFinalOrderStatus = (status: string): boolean => {
+    const normalized = (status || '').trim().toLowerCase();
+    return ['completed', 'concluido', 'concluído', 'enviado', 'entregue', 'shipped', 'delivered'].includes(normalized);
+  };
+
+  const getOrderStatusLabel = (status: string, isFullyPicked: boolean): string => {
+    const normalized = (status || '').trim().toLowerCase();
+    if (!normalized) return isFullyPicked ? 'Pronto' : 'Pendente';
+    if (normalized === 'completed') return 'Concluido';
+    if (normalized === 'pending') return isFullyPicked ? 'Pronto' : 'Pendente';
+    return status;
+  };
+
   // --- STATE ---
   const [view, setView] = useState<ViewState>('home');
   const [products, setProducts] = useState<Product[]>([]);
@@ -437,7 +450,10 @@ const App: React.FC = () => {
           
           const allPicked = orderForm.items.every(i => i.qtyPicked >= i.qtyRequested);
           const hasShipping = orderForm.envioMalote || orderForm.entregaMatriz;
-          const status = (allPicked && hasShipping) ? 'completed' : 'pending';
+          const isLpOrder = orderForm.id.startsWith('lp-');
+          const status = isLpOrder
+            ? (orderForm.status || ((allPicked && hasShipping) ? 'completed' : 'pending'))
+            : ((allPicked && hasShipping) ? 'completed' : 'pending');
           
           await storage.saveOrder({ ...orderForm, status }, isNew);
           await refreshData();
@@ -467,13 +483,33 @@ const App: React.FC = () => {
 
         const allPicked = updatedOrder.items.every(i => i.qtyPicked >= i.qtyRequested);
         const hasShipping = (updatedOrder.envioMalote === true) || (updatedOrder.entregaMatriz === true);
-        
-        const newStatus = (allPicked && hasShipping) ? 'completed' : 'pending';
+        const flagEnabledByClick =
+          method === 'malote'
+            ? updatedOrder.envioMalote === true
+            : updatedOrder.entregaMatriz === true;
+        const syncedLpStatus: 'ENTREGUE' = 'ENTREGUE';
+        const shouldSyncLpStatus = allPicked && flagEnabledByClick;
+
+        let newStatus = order.status || 'pending';
+        if (shouldSyncLpStatus) {
+            newStatus = syncedLpStatus;
+        } else if (!isFinalOrderStatus(order.status)) {
+            newStatus = (allPicked && hasShipping) ? 'completed' : 'pending';
+        }
         updatedOrder.status = newStatus;
 
         await storage.saveOrder(updatedOrder, false);
 
-        if (newStatus === 'completed' && order.status !== 'completed') {
+        if (shouldSyncLpStatus) {
+            try {
+                await storage.updateLpOrderStatus(updatedOrder, syncedLpStatus);
+            } catch (lpError: any) {
+                console.error('LP status sync error:', lpError);
+                addToast('error', `Pedido salvo, mas falhou sync LP: ${lpError?.message || 'erro desconhecido'}`);
+            }
+        }
+
+        if (isFinalOrderStatus(newStatus) && !isFinalOrderStatus(order.status)) {
             const envioLabel = updatedOrder.envioMalote ? 'Malote' : 'Matriz';
             await storage.saveMovement({
                 id: Date.now(),
@@ -1150,8 +1186,8 @@ const App: React.FC = () => {
                           const pickedItems = order.items.reduce((acc, i) => acc + i.qtyPicked, 0);
                           const progress = totalItems > 0 ? (pickedItems / totalItems) * 100 : 0;
                           const isFullyPicked = totalItems > 0 && pickedItems === totalItems;
-                          // Validação visual estrita: Só mostra concluído se tiver flag!
-                          const isCompleted = order.status === 'completed' && (order.envioMalote || order.entregaMatriz);
+                          const isCompleted = isFinalOrderStatus(order.status);
+                          const statusLabel = getOrderStatusLabel(order.status, isFullyPicked);
 
                           return (
                               <div key={order.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 active:scale-[0.99] transition-transform relative overflow-hidden">
@@ -1168,7 +1204,7 @@ const App: React.FC = () => {
                                           <div className="flex items-center gap-2">
                                             <h3 className="font-bold text-slate-800">#{order.orderNumber}</h3>
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                {isCompleted ? 'Concluído' : (isFullyPicked ? 'Pronto' : 'Pendente')}
+                                                {statusLabel}
                                             </span>
                                           </div>
                                           <p className="text-sm font-medium text-slate-600 truncate max-w-[200px]">{order.customerName}</p>
@@ -1823,7 +1859,7 @@ const App: React.FC = () => {
                       })}
                   </div>
 
-                  {selectedOrder.status === 'completed' && (
+                  {isFinalOrderStatus(selectedOrder.status) && (
                       <div className="mt-4 p-3 bg-green-100 text-green-800 text-center rounded-xl font-bold border border-green-200">
                           Pedido Finalizado
                       </div>

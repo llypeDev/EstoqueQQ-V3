@@ -88,11 +88,16 @@ export const exportOrdersCSV = (orders: Order[]) => {
   const rows = orders.map(o => {
     const date = new Date(o.date).toLocaleDateString();
     const envio = o.envioMalote ? 'Malote' : (o.entregaMatriz ? 'Matriz' : 'Pendente');
+    const normalizedStatus = (o.status || '').trim().toLowerCase();
+    const statusLabel =
+      normalizedStatus === 'completed' ? 'Concluido' :
+      normalizedStatus === 'pending' ? 'Pendente' :
+      (o.status || 'Pendente');
     
     // Resume os itens em uma string "ProdA(2) | ProdB(1)"
     const itensSummary = o.items.map(i => `${i.productName}(${i.qtyRequested})`).join(' | ');
     
-    return `${o.orderNumber};${date};${o.customerName};${o.filial};${o.matricula};${o.status === 'completed' ? 'Concluido' : 'Pendente'};${envio};${itensSummary};${o.obs || ''}`;
+    return `${o.orderNumber};${date};${o.customerName};${o.filial};${o.matricula};${statusLabel};${envio};${itensSummary};${o.obs || ''}`;
   }).join("\n");
   
   downloadCSV(header + rows, `relatorio_pedidos_${new Date().toISOString().slice(0,10)}.csv`);

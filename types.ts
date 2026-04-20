@@ -28,7 +28,7 @@ export interface Order {
   filial: string; // Novo campo Filial
   matricula: string;
   date: string; // Data da compra
-  status: 'pending' | 'completed';
+  status: string;
   items: OrderItem[];
   obs?: string;
   envioMalote?: boolean;

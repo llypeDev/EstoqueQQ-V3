@@ -75,6 +75,14 @@ const LP_ORDER_FILIAL_FIELDS = [
 const LP_ORDER_MATRICULA_FIELDS = ['matricula', 'employee_id', 'seller_id', 'user_id'];
 const LP_ORDER_DATE_FIELDS = ['order_date', 'date', 'data_pedido', 'created_at', 'createdAt'];
 const LP_ORDER_OBS_FIELDS = ['obs', 'observation', 'notes', 'note', 'comentario'];
+const LP_ORDER_STATUS_FIELDS = [
+  'status',
+  'order_status',
+  'shipping_status',
+  'delivery_status',
+  'situacao',
+  'status_pedido'
+];
 const LP_ORDER_RAW_FIELDS = ['payload', 'data', 'raw_data', 'raw', 'metadata', 'meta', 'json'];
 const LP_ORDER_CUSTOMER_PATHS = [
   ['customer', 'name'],
@@ -350,6 +358,83 @@ const deleteByColumnValues = async (
       throw new Error(`${table}.${column}: ${error.message}`);
     }
   }
+};
+
+const updateByColumnValues = async (
+  table: string,
+  columns: string[],
+  values: unknown[],
+  payload: GenericRow
+): Promise<void> => {
+  if (!supabase || columns.length === 0 || values.length === 0) return;
+
+  for (const column of columns) {
+    const { error } = await supabase.from(table).update(payload as any).in(column, values as any);
+    if (error) {
+      throw new Error(`${table}.${column}: ${error.message}`);
+    }
+  }
+};
+
+export const updateLpOrderStatus = async (
+  orderRef: Pick<Order, 'id' | 'orderNumber'>,
+  status: 'ENTREGUE'
+): Promise<void> => {
+  if (!supabase) return;
+
+  const orderNumberLookup = toLookupKey(orderRef.orderNumber);
+  const localIdLookup = toLookupKey(orderRef.id);
+  const localIdWithoutPrefix = localIdLookup.startsWith('lp-') ? localIdLookup.slice(3) : localIdLookup;
+
+  const { data: lpOrdersData, error: lpOrdersError } = await supabase
+    .from('lp_orders')
+    .select('*')
+    .limit(5000);
+
+  if (lpOrdersError) {
+    throw new Error(`lp_orders select: ${lpOrdersError.message}`);
+  }
+
+  const lpOrders = (lpOrdersData || []) as GenericRow[];
+  if (lpOrders.length === 0) return;
+
+  const orderColumns = new Set(Object.keys(lpOrders[0]));
+  const statusColumn = LP_ORDER_STATUS_FIELDS.find(col => orderColumns.has(col));
+  if (!statusColumn) {
+    return;
+  }
+
+  const lpOrderIds = new Set<unknown>();
+  const lpOrderNumbers = new Set<unknown>();
+
+  for (const lpOrder of lpOrders) {
+    const rowId = getFirstFieldValue(lpOrder, LP_ORDER_ID_FIELDS);
+    const rowNumber = getFirstFieldValue(lpOrder, LP_ORDER_NUMBER_FIELDS);
+    const rowIdLookup = toLookupKey(rowId);
+    const rowIdNormalized = rowIdLookup ? normalizeLocalOrderId(rowIdLookup) : '';
+    const rowNumberLookup = toLookupKey(rowNumber);
+
+    const matchByNumber = Boolean(orderNumberLookup) && rowNumberLookup === orderNumberLookup;
+    const matchById = Boolean(localIdWithoutPrefix) && (
+      rowIdLookup === localIdWithoutPrefix || rowIdNormalized === localIdWithoutPrefix
+    );
+
+    if (matchByNumber || matchById) {
+      if (rowId !== undefined && rowId !== null && rowId !== '') lpOrderIds.add(rowId);
+      if (rowNumber !== undefined && rowNumber !== null && rowNumber !== '') lpOrderNumbers.add(rowNumber);
+    }
+  }
+
+  if (orderRef.orderNumber && orderRef.orderNumber.trim()) {
+    lpOrderNumbers.add(orderRef.orderNumber.trim());
+  }
+
+  const lpOrderIdColumns = LP_ORDER_ID_FIELDS.filter(col => orderColumns.has(col));
+  const lpOrderNumberColumns = LP_ORDER_NUMBER_FIELDS.filter(col => orderColumns.has(col));
+  const payload: GenericRow = { [statusColumn]: status };
+
+  await updateByColumnValues('lp_orders', lpOrderIdColumns, Array.from(lpOrderIds), payload);
+  await updateByColumnValues('lp_orders', lpOrderNumberColumns, Array.from(lpOrderNumbers), payload);
 };
 
 const deleteLpMirrorOrders = async (orderRef: DeleteOrderRef): Promise<void> => {
@@ -876,6 +961,10 @@ export const syncLpOrdersToStockOrders = async (stockProductsSeed?: Product[]): 
         sanitizeMaybeText(lpMeta?.obs) ||
         sanitizeMaybeText(existingOrder?.obs) ||
         'Sincronizado automaticamente do LP';
+      const mappedStatus =
+        extractFieldText(rawOrder, LP_ORDER_STATUS_FIELDS, [], LP_ORDER_RAW_FIELDS) ||
+        sanitizeMaybeText(existingOrder?.status) ||
+        (allPicked && hasShipping ? 'completed' : 'pending');
 
       const mappedOrder: Order = {
         id: existingOrder?.id || generatedOrderId,
@@ -884,7 +973,7 @@ export const syncLpOrdersToStockOrders = async (stockProductsSeed?: Product[]): 
         filial: mappedFilial,
         matricula: mappedMatricula,
         date: normalizeOrderDate(mappedDateRaw),
-        status: allPicked && hasShipping ? 'completed' : 'pending',
+        status: mappedStatus,
         items: mappedItems,
         obs: mappedObs,
         envioMalote,
@@ -922,8 +1011,6 @@ export const fetchOrders = async (): Promise<Order[]> => {
       return data.map((o: any) => {
         const envioMalote = o.envio_malote === true;
         const entregaMatriz = o.entrega_matriz === true;
-        let status = o.status;
-        if (status === 'completed' && !envioMalote && !entregaMatriz) status = 'pending';
 
         return {
           id: o.id,
@@ -932,7 +1019,7 @@ export const fetchOrders = async (): Promise<Order[]> => {
           filial: o.filial || '',
           matricula: o.matricula,
           date: o.date,
-          status: status,
+          status: o.status || 'pending',
           items: o.items || [],
           obs: o.obs,
           envioMalote: envioMalote,
@@ -946,7 +1033,7 @@ export const fetchOrders = async (): Promise<Order[]> => {
       const orders = JSON.parse(local);
       return orders.map((o: any) => ({
           ...o,
-          status: (o.status === 'completed' && !o.envioMalote && !o.entregaMatriz) ? 'pending' : o.status
+          status: o.status || 'pending'
       }));
   }
   return [];
