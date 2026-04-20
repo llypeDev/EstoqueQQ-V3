@@ -24,7 +24,7 @@ type ConfirmDialogState = {
 const App: React.FC = () => {
   const isFinalOrderStatus = (status: string): boolean => {
     const normalized = (status || '').trim().toLowerCase();
-    return ['completed', 'concluido', 'concluído', 'enviado', 'entregue', 'shipped', 'delivered'].includes(normalized);
+    return ['completed', 'concluido', 'concluído', 'enviado', 'entregue', 'entregue/enviado', 'shipped', 'delivered'].includes(normalized);
   };
 
   const getOrderStatusLabel = (status: string, isFullyPicked: boolean): string => {
@@ -2070,3 +2070,5 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+
