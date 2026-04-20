@@ -35,6 +35,11 @@ const App: React.FC = () => {
     return status;
   };
 
+  const isCanceledOrderStatus = (status: string): boolean => {
+    const normalized = (status || '').trim().toLowerCase();
+    return ['cancelado', 'cancelled', 'canceled'].includes(normalized);
+  };
+
   // --- STATE ---
   const [view, setView] = useState<ViewState>('home');
   const [products, setProducts] = useState<Product[]>([]);
@@ -487,7 +492,7 @@ const App: React.FC = () => {
           method === 'malote'
             ? updatedOrder.envioMalote === true
             : updatedOrder.entregaMatriz === true;
-        const syncedLpStatus: 'ENTREGUE' = 'ENTREGUE';
+        const syncedLpStatus: 'ENTREGUE/ENVIADO' = 'ENTREGUE/ENVIADO';
         const shouldSyncLpStatus = allPicked && flagEnabledByClick;
 
         let newStatus = order.status || 'pending';
@@ -1187,16 +1192,23 @@ const App: React.FC = () => {
                           const progress = totalItems > 0 ? (pickedItems / totalItems) * 100 : 0;
                           const isFullyPicked = totalItems > 0 && pickedItems === totalItems;
                           const isCompleted = isFinalOrderStatus(order.status);
+                          const isCanceled = isCanceledOrderStatus(order.status);
                           const statusLabel = getOrderStatusLabel(order.status, isFullyPicked);
 
                           return (
                               <div key={order.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 active:scale-[0.99] transition-transform relative overflow-hidden">
                                   
-                                  {/* Status Banner for Pending Shipment */}
-                                  {isFullyPicked && !isCompleted && (
-                                      <div className="absolute top-0 right-0 bg-orange-100 text-orange-700 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl border-b border-l border-orange-200">
-                                          Pendente de Envio
+                                  {/* Status Banner */}
+                                  {isCanceled ? (
+                                      <div className="absolute top-0 right-0 bg-red-100 text-red-700 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl border-b border-l border-red-200">
+                                          APAGAR PEDIDO
                                       </div>
+                                  ) : (
+                                      isFullyPicked && !isCompleted && (
+                                          <div className="absolute top-0 right-0 bg-orange-100 text-orange-700 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl border-b border-l border-orange-200">
+                                              Pendente de Envio
+                                          </div>
+                                      )
                                   )}
 
                                   <div className="flex justify-between items-start mb-2">

@@ -378,7 +378,7 @@ const updateByColumnValues = async (
 
 export const updateLpOrderStatus = async (
   orderRef: Pick<Order, 'id' | 'orderNumber'>,
-  status: 'ENTREGUE'
+  status: 'ENTREGUE/ENVIADO'
 ): Promise<void> => {
   if (!supabase) return;
 
